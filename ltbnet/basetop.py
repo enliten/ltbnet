@@ -16,13 +16,41 @@ from minitop import LTBnet
 
 import logging
 logging.basicConfig(level=logging.ERROR)
+
+#Alberta,CAN -British Columbia,CAN - Bonneville,WA-Vancouver,WA -Boise,ID- Boulder,CO -Lakewood,CO
+#Folsom,CA -Sacramento,CA, Rosemead,CA- Los Angeles,C - San Diego,CA-Glendale,AZ? -Phoenix,AZ, Albequerque,NM
 points = ['AESO', 'BCTC', 'BPA', 'VRCC', 'IPCO', 'LRCC' , 'WAPA', 'CAIS', 'PGE', 'SCE', \
           'LADW', 'SDGE', 'APS', 'SRP', 'PNM']
 # points = ['AESO', 'BCTC', 'BPA', 'VRCC']
-coords = {n: () for n in points}
-regions = {n: [] for n in points}
+# coords = {n: () for n in points}
+# regions = {n: [] for n in points}
 pdcdata = dict()    # key: name, {keys: name,ID,coords,router}
 pmudata = dict()    #keys: pdcname,ID,coords,ip,level
+
+regions = {'AESO':['BCTC'], 'BCTC': ['AESO','BPA','VRCC'], 'BPA':['VRCC'], 'VRCC':['LRCC','BPA','IPCO','BCTC','CAIS'],
+           'IPCO':['VRCC'], 'LRCC':['VRCC','WAPA'] , 'WAPA': ['LRCC'], 'CAIS': ['VRCC','PGE','SCE'],
+           'PGE':['CAIS'], 'SCE': ['CAIS','LADW','SDGE','APS'], 'LADW': ['SCE'], 'SDGE': ['SCE'],
+           'APS': ['SCE','SRP'], 'SRP': ['APS','PNM'], 'PNM': ['SRP']}
+coords ={'AESO':(53.93,116.57) , 'BCTC': (57.72,127.64), 'BPA' : (45.6373,121.97), 'VRCC': (45.63,122.67),
+         'IPCO': (43.61,116.21), 'LRCC':(40.015,105.27) , 'WAPA':(39.704,105.081), 'CAIS':(38.678,121.176),
+         'PGE': (38.581,121.494), 'SCE': (34.08,118.07), 'LADW': (34.052,118.243), 'SDGE': (32.715,117.161),
+         'APS': (33.538,112.186), 'SRP': (33.44,112.074), 'PNM': (35.084,106.65)}
+macs = ['7a:43:4f:ca:0d:23', #AESO
+        '92:53:a7:1e:98:55', #BCTC
+        '7e:79:01:74:7b:f1', #BPA
+        '72:a0:ec:58:b4:64', #VRCC
+        '6a:3f:cc:21:bb:01', #IPCO
+        '16:d7:c3:d2:9c:34', #LRCC
+        'b6:5f:39:75:f5:b9', #WAPA
+        '52:31:94:6c:12:6c', #CAISO
+        'be:dd:b5:a9:5e:30', #PG&E
+        '72:5e:30:03:ac:dd', #SCE
+        'f6:5c:95:75:da:76', #LADWP
+        'aa:a4:86:81:48:1e', #SDGE
+        'f6:e7:cd:a9:96:7f', #APS
+        '72:83:f2:39:1c:5b', #SRP
+        '42:49:42:ac:7d:6e', #PNM
+        ]
 
 setLogLevel('info')
 # hostports = ['enp4s0f0', 'enp4s0f1']
@@ -67,12 +95,12 @@ if __name__ == '__main__':
     OPS = []
     PDCS = []
     PMUS = []
-    #Generate random network topology
-    for p in points:
-        connects = []
-        for i in range(1,randint(1,4)):
-            connects.append(points[randint(1, len(points) - 1)])
-            add_connect(p,connects)
+    # #Generate random network topology
+    # for p in points:
+    #     connects = []
+    #     for i in range(1,randint(1,4)):
+    #         connects.append(points[randint(1, len(points) - 1)])
+    #         add_connect(p,connects)
     #Generate random Coordinates
     for p in points:
         long = uniform(115,118)
@@ -93,10 +121,10 @@ if __name__ == '__main__':
         id = str(i)
         ip = ip_change(route,3,i)
         params = dict(ID=id,router=route,IP=ip,region=p, name=p,type='OP', coords=coords[p],
-                      connects=regions[p],num_pmus=pmus,num_pdcs=pdcs)
+                      connects=regions[p],MAC=macs[i],num_pmus=pmus,num_pdcs=pdcs)
         OPS.append(Region(params))
 
-    #PDCS
+    PDCS
     for i, p in enumerate(OPS):
         for n in range(0,p.num_pdcs):
             crange = (p.coords[0]-1,p.coords[0]+1,p.coords[1]-1,p.coords[1]+1)
@@ -122,9 +150,15 @@ if __name__ == '__main__':
     #     print('Region: {} ,  Connects {}'.format(key,val))
     opts = dict(Regions = OPS, PDCS = PDCS, PMUS = PMUS)
     topo = LTBnet(opts)
-    # c2 = RemoteController('c2', ip='127.0.0.1', port=6633)
-    # net = Mininet(topo=topo,controller=c2)
-    net = Mininet(topo=topo)
+    c2 = RemoteController('c2', ip='127.0.0.1', port=6633)
+    net = Mininet(topo=topo,controller=c2)
+    # net = Mininet(topo=topo)
     net.start()
+
+    for i, p in enumerate(points):
+        h = net.get(p)
+        h.setMAC(macs[i])
+        print(p, macs[i])
+
     CLI(net)
     net.stop()

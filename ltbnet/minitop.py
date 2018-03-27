@@ -3,13 +3,14 @@
 import re
 import sys
 import logging
+import pprint
 
 from mininet.topo import Topo
 from mininet.link import Intf
 from mininet.log import setLogLevel, info, error
-from mininet.node import OVSSwitch, Controller, RemoteController
+from mininet.node import OVSSwitch, Controller, RemoteController,Node
 
-
+pp = pprint.PrettyPrinter(indent=4)
 
 class LTBnet(Topo):
     def build(self,opts):
@@ -37,7 +38,7 @@ class LTBnet(Topo):
         self.gen_reg_con()
         self.gen_pdc_con(self.NodeOBJ['PDCS'])
         self.gen_pmu_con(self.NodeOBJ['PMUS'])
-        print self.Switches
+        pp.pprint(self.Switches)
 
     #Set physical port connections
     #TODO:Add this
@@ -60,7 +61,7 @@ class LTBnet(Topo):
         for i in self.NodeOBJ[typen]:
             print("Name: {} Coords: {} ".format(i.name, i.coords))
 
-        self.Switches[typen] = {k.name: [] for k in self.NodeOBJ[typen]}  #Ordered Switch connections (W-E or N-S)
+        self.Switches[typen] = {k.name: ([],[]) for k in self.NodeOBJ[typen]}  #Ordered Switch connections (W-E or N-S)
 
     def gen_nodes(self):
         """Adds Regions,PDC and PMU nodes"""
@@ -75,24 +76,61 @@ class LTBnet(Topo):
                 npm = self.addHost(reg.name + '_PMU_'+ str(i))
                 self.Nodes['PMUS'][reg.name] = npm
 
+
     def gen_reg_con(self):
         #TODO:Openflow cannot have multiple paths to same node
 
         """Creates Link Connection for given hosts"""
+        sname1 = 's' + str(len(self.switch))
+        sname2 = 's' + str(len(self.switch)+1)
         for h1 in self.Regions:
-            sname = 's' + str(len(self.switch))
-            self.switch.append(self.addSwitch(sname))
-            self.Switches['Regions'][h1.name].append(sname)
-            self.addLink(h1.name, sname)
+            for h2 in h1.connects:
+                checkcon1 = h1.name + '_to_' + h2
+                checkcon2 = h2 + '_to_' + h1.name
+                if not self.Switches['Regions'][h1.name][0]:
+                    print("Region {} has no switch, adding switch to {}".format(h1.name,h1.name))
+                    self.switch.append(self.addSwitch(sname1))
+                    self.addLink(h1.name, sname1)
+                    if (checkcon1 not in self.Switches['Regions'][h2][0]) and (checkcon2 not in self.Switches['Regions'][h2][0]):
+                        print("Region {} and {} connecting".format(h1.name, h2))
+                        self.Switches['Regions'][h1.name][0].append(checkcon1)
+                        self.Switches['Regions'][h2][0].append(checkcon2)
+                        self.Switches['Regions'][h1.name][1].append(sname1)
+                        self.Switches['Regions'][h2][1].append(sname2)
+                        self.switch.append(self.addSwitch(sname2))
+                        self.addLink(h2,sname2)
+                        self.addLink(sname1,sname2)
+                        sname1 = 's' + str(len(self.switch)-1)
+                        sname2 = 's' + str(len(self.switch))
+                    else:
+                        print("Region {} and {} already connected".format(h1.name, h2))
+                        self.Switches['Regions'][h1.name].append(checkcon1)
+                else:
+                    print("Region {} already has a switch".format(h1.name))
+                    if (checkcon1 not in self.Switches['Regions'][h2][0]) and (checkcon2 not in self.Switches['Regions'][h2][0]):
+                        print("Region {} and {} connecting".format(h1.name, h2))
+                        self.Switches['Regions'][h1.name][0].append(checkcon1)
+                        self.Switches['Regions'][h2][0].append(checkcon2)
+                        # self.switch.append(self.addSwitch(sname2))
+                        s1 = self.Switches['Regions'][h1.name][1][-1]
+                        if not self.Switches['Regions'][h2][1]:
+                            sname2 = 's' + str(len(self.switch))
+                            self.switch.append(self.addSwitch(sname2))
+                            self.Switches['Regions'][h2][1].append(sname2)
+                            self.addLink(h2, sname2)
+                            s2 = self.Switches['Regions'][h2][1][-1]
+                        else:
+                            s2 = self.Switches['Regions'][h2][1][-1]
+                        self.addLink(s1,s2)
+                        # self.addLink(sname1,sname2)
+                        sname1 = 's' + str(len(self.switch)-1)
+                        sname2 = 's' + str(len(self.switch))
 
-        for i, n in enumerate(self.switch):
-            if i == len(self.switch)-1:
-                break
-            else:
-                print('Linking {} to {}'.format(n, self.switch[i + 1]))
-                self.addLink(n ,self.switch[i+1])
+
+
 
     def gen_pdc_con(self, hosts):
+        """Connects a PDC to each region"""
         # TODO:ADD Distance calculations for links
 
         """Creates Link Connection for given hosts"""
@@ -101,14 +139,15 @@ class LTBnet(Topo):
             if h1.region in self.Switches['Regions']:
                 sname = 's' + str(len(self.switch))
                 self.switch.append(self.addSwitch(sname))
-                self.Switches['PDCS'][h1.name].append(sname)
+                self.Switches['PDCS'][h1.name][0].append(sname)
                 self.addLink(h1.name, sname)
-                self.addLink(sname, self.Switches['Regions'][h1.region][-1])
+                self.addLink(sname, self.Switches['Regions'][h1.region][1][-1])
             else:
                 logging.warning("<PDC Region Undefined. {} not added>".format(h1.name))
 
 
     def gen_pmu_con(self, hosts):
+        """Connects PMU's to the regions PDC"""
         # TODO:ADD Distance calculations for links. Deal with multiple switches for connection [-1]
         #TODO:Limit Number of PMUS connected to 1 PDC(i.e its switch)
 
@@ -117,11 +156,11 @@ class LTBnet(Topo):
             # for i in range(0,self.Regions[h1.region].num_pmus):
             for pd in h1.RegNode.nodes['PDC']:
                 if pd.name in self.Switches['PDCS']:
-                    sname = 's' + str(len(self.switch))
-                    self.switch.append(self.addSwitch(sname))
-                    self.Switches['PMUS'][h1.name].append(sname)
-                    self.addLink(h1.name, sname)
-                    self.addLink(sname, self.Switches['PDCS'][pd.name][-1])
+
+                    pds = self.Switches['PDCS'][pd.name][0][-1]
+                    self.Switches['PMUS'][h1.name][0].append(pds)
+                    self.addLink(h1.name, pds)
+
                 else:
                     logging.warning("<PMU Region Undefined. {} not added>".format(h1.name))
 

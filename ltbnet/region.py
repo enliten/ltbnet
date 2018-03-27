@@ -15,6 +15,7 @@ class Region():
         self.name = params['name']      #Operator Region Name
         self.region = params['region']
         self.connects = params['connects']
+        self.MAC = params['MAC']
         self.ip_list = []
         self.id_list = []
         self.num_sws = 0
