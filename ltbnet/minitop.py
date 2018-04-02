@@ -3,12 +3,14 @@
 import re
 import sys
 import logging
+logging.basicConfig(level=logging.DEBUG)
 import pprint
 
 from mininet.topo import Topo
 from mininet.link import Intf
 from mininet.log import setLogLevel, info, error
-from mininet.node import OVSSwitch, Controller, RemoteController,Node
+# from mininet.link import Link,TCLink
+# from mininet.node import OVSSwitch, Controller, RemoteController,Node
 
 pp = pprint.PrettyPrinter(indent=4)
 
@@ -23,8 +25,9 @@ class LTBnet(Topo):
         self.NodeOBJ = {'Regions' : self.Regions , 'PDCS' : self.PDCs, 'PMUS' : self.PMUs}  #Coordinate Ordered Objects
         self.Nodes = {'Regions' : {} , 'PDCS' : {}, 'PMUS' : {}}
         self.Switches = {'Regions': {}, 'PDCS' : {}, 'PMUS': {}} #Ordered Switch connections (W-E or N-S)
+        self.Router = {'Connects': []}
         self.switch = []
-        self.routers = []
+        # self.routers = []
         self.host = []
         self.port = []
         self.link = []
@@ -38,7 +41,7 @@ class LTBnet(Topo):
         self.gen_reg_con()
         self.gen_pdc_con(self.NodeOBJ['PDCS'])
         self.gen_pmu_con(self.NodeOBJ['PMUS'])
-        pp.pprint(self.Switches)
+        # pp.pprint(self.Switches)
 
     #Set physical port connections
     #TODO:Add this
@@ -57,8 +60,8 @@ class LTBnet(Topo):
         # for i in self.NodeOBJ[typen]:
         #     print("Name: {} Coords {} ".format(i.name,i.coords))
         self.NodeOBJ[typen] = sorted(self.NodeOBJ[typen],key=lambda coord: coord.coords[idx])
-        for i in self.NodeOBJ[typen]:
-            print("Name: {} Coords: {} ".format(i.name, i.coords))
+        # for i in self.NodeOBJ[typen]:
+        #     print("Name: {} Coords: {} ".format(i.name, i.coords))
 
         self.Switches[typen] = {k.name: ([],[]) for k in self.NodeOBJ[typen]}  #Ordered Switch connections (W-E or N-S)
 
@@ -66,10 +69,10 @@ class LTBnet(Topo):
         """Adds Regions,PDC and PMU nodes"""
         rnum = 1
         for reg in self.Regions:
-            n = self.addHost(reg.name,ip=reg.IP,mac=reg.MAC)
             r = self.addHost('r' + str(rnum))
-            self.routers.append(r)
+            self.Router[reg.name] = r
             rnum = rnum + 1
+            n = self.addHost(reg.name,ip=reg.IP,mac=reg.MAC)
             self.Nodes['Regions'][reg.name]=n
             for i,pd in enumerate(reg.nodes['PDC']):
                 npd = self.addHost(reg.name + '_PDC_'+ str(i),ip=pd.IP)
@@ -83,51 +86,67 @@ class LTBnet(Topo):
     def gen_reg_con(self):
         #TODO:Openflow cannot have multiple paths to same node
 
-        """Creates Link Connection for given hosts"""
+        """Creates Link Connection for given hosts between routers"""
         sname1 = 's' + str(len(self.switch))
-        sname2 = 's' + str(len(self.switch)+1)
+        # sname2 = 's' + str(len(self.switch)+1)
         for h1 in self.Regions:
+            self.switch.append(self.addSwitch(sname1))
+            logging.info('Adding Router Link to {}'.format(h1.name))
+            self.addLink(self.Router[h1.name], sname1)
             for h2 in h1.connects:
                 checkcon1 = h1.name + '_to_' + h2
                 checkcon2 = h2 + '_to_' + h1.name
-                if not self.Switches['Regions'][h1.name][0]:
-                    print("Region {} has no switch, adding switch to {}".format(h1.name,h1.name))
-                    self.switch.append(self.addSwitch(sname1))
-                    self.addLink(h1.name, sname1)
-                    if (checkcon1 not in self.Switches['Regions'][h2][0]) and (checkcon2 not in self.Switches['Regions'][h2][0]):
-                        print("Region {} and {} connecting".format(h1.name, h2))
-                        self.Switches['Regions'][h1.name][0].append(checkcon1)
-                        self.Switches['Regions'][h2][0].append(checkcon2)
-                        self.Switches['Regions'][h1.name][1].append(sname1)
-                        self.Switches['Regions'][h2][1].append(sname2)
-                        self.switch.append(self.addSwitch(sname2))
-                        self.addLink(h2,sname2)
-                        self.addLink(sname1,sname2)
-                        sname1 = 's' + str(len(self.switch)-1)
-                        sname2 = 's' + str(len(self.switch))
-                    else:
-                        print("Region {} and {} already connected".format(h1.name, h2))
-                        self.Switches['Regions'][h1.name].append(checkcon1)
+                if checkcon1 not in self.Router['Connects'] and checkcon2 not in self.Router['Connects']:
+
+                    logging.info('Linking routers from {} to {}'.format(h1.name,h2))
+                    self.addLink(self.Router[h1.name],self.Router[h2])
+                    self.Router['Connects'].append(checkcon1)
+                    self.Router['Connects'].append(checkcon1)
                 else:
-                    print("Region {} already has a switch".format(h1.name))
-                    if (checkcon1 not in self.Switches['Regions'][h2][0]) and (checkcon2 not in self.Switches['Regions'][h2][0]):
-                        print("Region {} and {} connecting".format(h1.name, h2))
-                        self.Switches['Regions'][h1.name][0].append(checkcon1)
-                        self.Switches['Regions'][h2][0].append(checkcon2)
-                        # self.switch.append(self.addSwitch(sname2))
-                        s1 = self.Switches['Regions'][h1.name][1][-1]
-                        if not self.Switches['Regions'][h2][1]:
-                            sname2 = 's' + str(len(self.switch))
-                            self.switch.append(self.addSwitch(sname2))
-                            self.Switches['Regions'][h2][1].append(sname2)
-                            self.addLink(h2, sname2)
-                            s2 = self.Switches['Regions'][h2][1][-1]
-                        else:
-                            s2 = self.Switches['Regions'][h2][1][-1]
-                        self.addLink(s1,s2)
-                        # self.addLink(sname1,sname2)
-                        sname1 = 's' + str(len(self.switch)-1)
-                        sname2 = 's' + str(len(self.switch))
+                    logging.info('Routers from {} to {} already connected'.format(h1.name,h2))
+                # if not self.Router[h1.name]:
+                #     print("Region {} has no router, adding router to {}".format(h1.name,h1.name))
+                #     # self.switch.append(self.addSwitch(sname1))
+                #     r = self.addHost('r' + str(rnum))
+                #     self.Router[h1.name] = r
+                #     rnum = rnum + 1
+                #     self.addLink(h1.name, self.Router[h1.name])
+                #     if (checkcon1 not in self.Switches['Regions'][h2][0]) and (checkcon2 not in self.Switches['Regions'][h2][0]):
+                #         print("Region {} and {} connecting".format(h1.name, h2))
+                #         self.Switches['Regions'][h1.name][0].append(checkcon1)
+                #         self.Switches['Regions'][h2][0].append(checkcon2)
+                #         self.Switches['Regions'][h1.name][1].append(sname1)
+                #         self.Switches['Regions'][h2][1].append(sname2)
+                #         self.switch.append(self.addSwitch(sname2))
+                #         self.addLink(h2,sname2)
+                #         self.addLink(self.Router[h1.name],sname1)
+                #         self.addLink(self.Router[h1.name],sname2)
+                #         sname1 = 's' + str(len(self.switch)-1)
+                #         sname2 = 's' + str(len(self.switch))
+                #     else:
+                #         print("Region {} and {} already connected".format(h1.name, h2))
+                #         self.Switches['Regions'][h1.name].append(checkcon1)
+                # else:
+                #     print("Region {} already has a router".format(h1.name))
+                #     if (checkcon1 not in self.Switches['Regions'][h2][0]) and (checkcon2 not in self.Switches['Regions'][h2][0]):
+                #         print("Region {} and {} connecting".format(h1.name, h2))
+                #         self.Switches['Regions'][h1.name][0].append(checkcon1)
+                #         self.Switches['Regions'][h2][0].append(checkcon2)
+                #         # self.switch.append(self.addSwitch(sname2))
+                #         s1 = self.Switches['Regions'][h1.name][1][-1]
+                #         if not self.Switches['Regions'][h2][1]:
+                #             sname2 = 's' + str(len(self.switch))
+                #             self.switch.append(self.addSwitch(sname2))
+                #             self.Switches['Regions'][h2][1].append(sname2)
+                #             self.addLink(h2, sname2)
+                #             s2 = self.Switches['Regions'][h2][1][-1]
+                #         else:
+                #             s2 = self.Switches['Regions'][h2][1][-1]
+                #         self.addLink(self.Router[h1.name],s1)
+                #         self.addLink(self.Router[h1.name],s2)
+                #         # self.addLink(sname1,sname2)
+                #         sname1 = 's' + str(len(self.switch)-1)
+                #         sname2 = 's' + str(len(self.switch))
 
 
 
@@ -144,7 +163,7 @@ class LTBnet(Topo):
                 self.switch.append(self.addSwitch(sname))
                 self.Switches['PDCS'][h1.name][0].append(sname)
                 self.addLink(h1.name, sname)
-                self.addLink(sname, self.Switches['Regions'][h1.region][1][-1])
+                self.addLink(sname, self.Router[h1.region])
             else:
                 logging.warning("<PDC Region Undefined. {} not added>".format(h1.name))
 

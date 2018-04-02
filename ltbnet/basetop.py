@@ -7,8 +7,9 @@ from random import uniform
 
 from mininet.net import Mininet
 from mininet.cli import CLI
-from mininet.node import OVSSwitch, Controller, RemoteController
+from mininet.node import OVSKernelSwitch,UserSwitch, Controller, RemoteController
 from mininet.log import setLogLevel, info, error
+from mininet.link import Link,TCLink
 
 from region import Region
 from node import Node
@@ -136,16 +137,41 @@ if __name__ == '__main__':
 
     opts = dict(Regions = OPS, PDCS = PDCS, PMUS = PMUS)
     topo = LTBnet(opts)
-    c2 = RemoteController('c2', ip='127.0.0.1', port=6633)
-    net = Mininet(topo=topo,controller=c2)
+    c2 = RemoteController('c2', ip='127.0.0.1',port=6633)
+    net = Mininet(topo=topo,controller=c2,link=TCLink,switch=OVSKernelSwitch)
     # net = Mininet(topo=topo)
     net.start()
 
-    # Set MAC addresses
-    # for i, p in enumerate(points):
-    #     h = net.get(p)
-    #     h.setMAC(macs[i])
-    #     print(p, macs[i])
+    #TODO:set router r.cmd(ifconfigs) and set switch flow tables with s.cmd add flow
+    eth = "-eth"
+    ethc = 0
+    #TODO: Add router, switches and hosts to region class instance to keep track of MACS and IPS more easily for config
+    #TODO:Get MAC addresses for PDC and PMUS created by mininet? Or define own?
+
+
+    for i, p in enumerate(topo.NodeOBJ['Regions']):
+        rname = topo.Router[p.name]
+        r = net.get(rname)
+        for j,pd in enumerate(p.nodes['PDC']):
+            #TODO: Stopped Here!!!!!!!!!!!!!!!!!!!!!
+            # hw = net.get(topo.hosts())
+            eth = eth + str(ethc)
+            r.cmd("ifconfig " +rname+eth + "hw ether " + hw)
+            r.cmd("ip addr add " + p.IP + "/24 brd + dev "+rname+eth)
+            r.cmd("echo 1 > /proc/sys/net/ipv4/ip_forward")
+            ethc = ethc + 1
+        for k, pm in enumerate(p.nodes['PMU']):
+            hw = pd.MAC
+            eth = eth + str(ethc)
+            r.cmd("ifconfig " + rname + eth + "hw ether " + hw)
+            r.cmd("ip addr add " + p.IP + "/24 brd + dev " + rname + eth)
+            r.cmd("echo 1 > /proc/sys/net/ipv4/ip_forward")
+            ethc = ethc + 1
+    for i, host in topo.hosts():
+        ip = host.IP()
+        ip = ip_change(ip,3,1)
+        host.cmd("ip route add default via " + ip)
+
 
     CLI(net)
     net.stop()

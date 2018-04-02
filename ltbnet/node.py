@@ -26,7 +26,7 @@ class Node():
         """Inherits router address from region or PDC, then adds IP"""
         ldigs = self.RegNode.router.split('.')
         self.IP = '.'.join((ldigs[0],ldigs[1],ldigs[2],str(len(self.RegNode.ip_list)+2)))
-        print('{} IP address is {}'.format(self.name,self.IP))
+        # print('{} IP address is {}'.format(self.name,self.IP))
 
     def set_id(self):
         self.ID = self.RegNode.ID + '.' + str(len(self.RegNode.nodes[self.typen]))
