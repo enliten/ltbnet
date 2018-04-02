@@ -27,7 +27,7 @@ points = ['AESO', 'BCTC', 'BPA', 'VRCC', 'IPCO', 'LRCC' , 'WAPA', 'CAIS', 'PGE',
 pdcdata = dict()    # key: name, {keys: name,ID,coords,router}
 pmudata = dict()    #keys: pdcname,ID,coords,ip,level
 
-regions = {'AESO':['BCTC'], 'BCTC': ['AESO','BPA','VRCC'], 'BPA':['VRCC'], 'VRCC':['LRCC','BPA','IPCO','BCTC','CAIS'],
+regions = {'AESO':['BCTC'], 'BCTC': ['AESO','VRCC'], 'BPA':['VRCC'], 'VRCC':['LRCC','BPA','IPCO','BCTC','CAIS'],
            'IPCO':['VRCC'], 'LRCC':['VRCC','WAPA'] , 'WAPA': ['LRCC'], 'CAIS': ['VRCC','PGE','SCE'],
            'PGE':['CAIS'], 'SCE': ['CAIS','LADW','SDGE','APS'], 'LADW': ['SCE'], 'SDGE': ['SCE'],
            'APS': ['SCE','SRP'], 'SRP': ['APS','PNM'], 'PNM': ['SRP']}
@@ -95,21 +95,10 @@ if __name__ == '__main__':
     OPS = []
     PDCS = []
     PMUS = []
-    # #Generate random network topology
-    # for p in points:
-    #     connects = []
-    #     for i in range(1,randint(1,4)):
-    #         connects.append(points[randint(1, len(points) - 1)])
-    #         add_connect(p,connects)
-    #Generate random Coordinates
-    for p in points:
-        long = uniform(115,118)
-        lat = uniform(30,47)
-        coord = (round(lat,3),round(long,3))
-        coords[p] = coord
+
 
     #Starting Router Addresses          #Start testing here,
-    ROUTES = '192.168.0.0'
+    ROUTES = '192.168.1.1'
     IDS = 0
 
     pdcs = 1
@@ -117,14 +106,14 @@ if __name__ == '__main__':
 
     #Regions
     for i, p in enumerate(points):
-        route = ip_change(ROUTES,2,str(i))
+        route = ip_change(ROUTES,2,str(i+1))
         id = str(i)
-        ip = ip_change(route,3,i)
+        ip = ip_change(route,3,1)
         params = dict(ID=id,router=route,IP=ip,region=p, name=p,type='OP', coords=coords[p],
                       connects=regions[p],MAC=macs[i],num_pmus=pmus,num_pdcs=pdcs)
         OPS.append(Region(params))
 
-    PDCS
+    # PDCS
     for i, p in enumerate(OPS):
         for n in range(0,p.num_pdcs):
             crange = (p.coords[0]-1,p.coords[0]+1,p.coords[1]-1,p.coords[1]+1)
@@ -144,10 +133,7 @@ if __name__ == '__main__':
             p.nodes['PMU'].append(PMUS[-1])
             p.ip_list.append(PMUS[-1].IP)
 
-    # for i in OPS:
-    #     print('{} {} {} {} {} {}'.format(i.ID,i.router,i.IP,i.region,i.type,i.coords))
-    # for key, val in regions.items():
-    #     print('Region: {} ,  Connects {}'.format(key,val))
+
     opts = dict(Regions = OPS, PDCS = PDCS, PMUS = PMUS)
     topo = LTBnet(opts)
     c2 = RemoteController('c2', ip='127.0.0.1', port=6633)
@@ -155,10 +141,11 @@ if __name__ == '__main__':
     # net = Mininet(topo=topo)
     net.start()
 
-    for i, p in enumerate(points):
-        h = net.get(p)
-        h.setMAC(macs[i])
-        print(p, macs[i])
+    # Set MAC addresses
+    # for i, p in enumerate(points):
+    #     h = net.get(p)
+    #     h.setMAC(macs[i])
+    #     print(p, macs[i])
 
     CLI(net)
     net.stop()

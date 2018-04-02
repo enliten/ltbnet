@@ -47,7 +47,6 @@ class LTBnet(Topo):
         """Orders Regions,or Nodes so that switch connections take place
         in a geographically ordered sequence
         Direction is longitudinal or latitudinal : ie, long or lat"""
-
         if direction not in ('long','lat'):
             logging.error("Must specify long or lat for switch direction")
             return False
@@ -65,15 +64,19 @@ class LTBnet(Topo):
 
     def gen_nodes(self):
         """Adds Regions,PDC and PMU nodes"""
+        rnum = 1
         for reg in self.Regions:
-            n = self.addHost(reg.name)
+            n = self.addHost(reg.name,ip=reg.IP,mac=reg.MAC)
+            r = self.addHost('r' + str(rnum))
+            self.routers.append(r)
+            rnum = rnum + 1
             self.Nodes['Regions'][reg.name]=n
-            for i in range(0,reg.num_pdcs):
-                npd = self.addHost(reg.name + '_PDC_'+ str(i))
+            for i,pd in enumerate(reg.nodes['PDC']):
+                npd = self.addHost(reg.name + '_PDC_'+ str(i),ip=pd.IP)
                 self.Nodes['PDCS'][reg.name] = npd
 
-            for i in range(0,reg.num_pmus):
-                npm = self.addHost(reg.name + '_PMU_'+ str(i))
+            for i,pm in enumerate(reg.nodes['PMU']):
+                npm = self.addHost(reg.name + '_PMU_'+ str(i),ip=pm.IP)
                 self.Nodes['PMUS'][reg.name] = npm
 
 
