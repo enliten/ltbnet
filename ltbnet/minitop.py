@@ -69,17 +69,26 @@ class LTBnet(Topo):
         """Adds Regions,PDC and PMU nodes"""
         rnum = 1
         for reg in self.Regions:
-            r = self.addHost('r' + str(rnum))
+            rname = 'r' + str(rnum)
+            r = self.addHost(rname,ip=reg.router)
+            reg.router_node = rname
             self.Router[reg.name] = r
-            rnum = rnum + 1
+            print reg.IP
             n = self.addHost(reg.name,ip=reg.IP,mac=reg.MAC)
+            reg.node = rname
+            rnum = rnum + 1
+
             self.Nodes['Regions'][reg.name]=n
             for i,pd in enumerate(reg.nodes['PDC']):
-                npd = self.addHost(reg.name + '_PDC_'+ str(i),ip=pd.IP)
+                pdname = reg.name + '_PDC_'+ str(i)
+                npd = self.addHost(pdname,ip=pd.IP)
+                pd.node = (npd,pdname)
                 self.Nodes['PDCS'][reg.name] = npd
 
             for i,pm in enumerate(reg.nodes['PMU']):
-                npm = self.addHost(reg.name + '_PMU_'+ str(i),ip=pm.IP)
+                pmname = reg.name + '_PMU_'+ str(i)
+                npm = self.addHost(pmname,ip=pm.IP)
+                pm.node = npm
                 self.Nodes['PMUS'][reg.name] = npm
 
 
@@ -90,9 +99,12 @@ class LTBnet(Topo):
         sname1 = 's' + str(len(self.switch))
         # sname2 = 's' + str(len(self.switch)+1)
         for h1 in self.Regions:
+            sname1 = 's' + str(len(self.switch))
             self.switch.append(self.addSwitch(sname1))
+            h1.switch = sname1
             logging.info('Adding Router Link to {}'.format(h1.name))
             self.addLink(self.Router[h1.name], sname1)
+            self.addLink(h1.name, sname1)
             for h2 in h1.connects:
                 checkcon1 = h1.name + '_to_' + h2
                 checkcon2 = h2 + '_to_' + h1.name
@@ -150,7 +162,6 @@ class LTBnet(Topo):
 
 
 
-
     def gen_pdc_con(self, hosts):
         """Connects a PDC to each region"""
         # TODO:ADD Distance calculations for links
@@ -160,7 +171,9 @@ class LTBnet(Topo):
             # for i in range(0,self.Regions[h1.region].num_pdcs):
             if h1.region in self.Switches['Regions']:
                 sname = 's' + str(len(self.switch))
-                self.switch.append(self.addSwitch(sname))
+                sw = self.addSwitch(sname)
+                self.switch.append(sw)
+                h1.switch = sname
                 self.Switches['PDCS'][h1.name][0].append(sname)
                 self.addLink(h1.name, sname)
                 self.addLink(sname, self.Router[h1.region])
@@ -178,9 +191,9 @@ class LTBnet(Topo):
             # for i in range(0,self.Regions[h1.region].num_pmus):
             for pd in h1.RegNode.nodes['PDC']:
                 if pd.name in self.Switches['PDCS']:
-
                     pds = self.Switches['PDCS'][pd.name][0][-1]
                     self.Switches['PMUS'][h1.name][0].append(pds)
+                    h1.switch = pd.switch
                     self.addLink(h1.name, pds)
 
                 else:

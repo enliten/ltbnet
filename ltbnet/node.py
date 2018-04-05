@@ -17,6 +17,10 @@ class Node():
         self.coords = params['coords']      #Coordinate Location
         self.name = self.RegNode.region + '_' +self.typen + '_' + str(len(self.RegNode.nodes[self.typen]))                      #Region+name
         self.region = params['region']
+        self.switch = None               #Switch Name
+        self.router_mac = None
+        self.router_node = None
+        self.node = None                 #Node Name
         # self.level = params['level']        #Level of switch connection
         # self.swcons = dict()                #Switch Connection (dict with key = int Val =(int level, string switch)
         self.set_ip()
@@ -25,7 +29,7 @@ class Node():
     def set_ip(self):
         """Inherits router address from region or PDC, then adds IP"""
         ldigs = self.RegNode.router.split('.')
-        self.IP = '.'.join((ldigs[0],ldigs[1],ldigs[2],str(len(self.RegNode.ip_list)+2)))
+        self.IP = '.'.join((ldigs[0],ldigs[1],ldigs[2],str(len(self.RegNode.ip_list)+3)))
         # print('{} IP address is {}'.format(self.name,self.IP))
 
     def set_id(self):

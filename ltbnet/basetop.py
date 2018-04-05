@@ -82,6 +82,21 @@ def ip_change(ip,oct,num):
     newip = '.'.join(ldigs)
     return newip
 
+def hw_change(addr,sect,num):
+    """Changes hw address section 0-5 to num.
+    num should be no more than 2 digits"""
+    if num < 10:
+        ldigs = addr.split(':')
+        print ldigs
+        ldigs[sect] = "0" + str(num)
+        newhw = ':'.join(ldigs)
+    elif num < 99 and num >= 10:
+        ldigs = addr.split(':')
+        print ldigs
+        ldigs[sect] = str(num)
+        newhw = ':'.join(ldigs)
+    return newhw
+
 def rand_coords(crange):
     ll = crange[0]
     lh = crange[1]
@@ -109,7 +124,7 @@ if __name__ == '__main__':
     for i, p in enumerate(points):
         route = ip_change(ROUTES,2,str(i+1))
         id = str(i)
-        ip = ip_change(route,3,1)
+        ip = ip_change(route,3,2)
         params = dict(ID=id,router=route,IP=ip,region=p, name=p,type='OP', coords=coords[p],
                       connects=regions[p],MAC=macs[i],num_pmus=pmus,num_pdcs=pdcs)
         OPS.append(Region(params))
@@ -142,35 +157,84 @@ if __name__ == '__main__':
     # net = Mininet(topo=topo)
     net.start()
 
-    #TODO:set router r.cmd(ifconfigs) and set switch flow tables with s.cmd add flow
-    eth = "-eth"
+    eth_pre = "-eth"
     ethc = 0
-    #TODO: Add router, switches and hosts to region class instance to keep track of MACS and IPS more easily for config
-    #TODO:Get MAC addresses for PDC and PMUS created by mininet? Or define own?
+    #TODO: FIX Router port ethernet connections, still no connectivity
 
+    #Starting Hardware address for ethernet ports in routers
+    hw = "00:00:00:00:01:01"
+    idx = 1
 
     for i, p in enumerate(topo.NodeOBJ['Regions']):
-        rname = topo.Router[p.name]
+        ethc = 0
+        eth = eth_pre + str(ethc)
+        rname = p.router_node
         r = net.get(rname)
+        p_node = net.get(p.name)
+        sr = net.get(p.switch)
+        r.cmd("ifconfig " + rname + eth + " 0")
+        r.cmd("ifconfig " + rname + eth + " hw ether " + hw)
+        print (p.name)
+        print("Router IP {}".format(r.IP()))
+        print("ifconfig " + rname + eth + " 0")
+        print("ifconfig " + rname + eth + " hw ether " + hw)
+        r.cmd("ip addr add " + p.router + "/24 brd + dev " + rname + eth)
+        print("ip addr add " + p.router + "/24 brd + dev " + rname + eth)
+        print("Region IP {}".format(p.IP))
+        r.cmd("echo 1 > /proc/sys/net/ipv4/ip_forward")
+        idx = idx+1
+        hw = hw_change(hw,5,idx)
+
+        sr.cmd(
+            "ovs-oftcl add-flow " + p.switch + " priority=1,arp,actions=flood")
+        sr.cmd(
+            "ovs-oftcl add-flow " + p.switch + " priority=65535,ip,dl_dst=" + hw +
+            ",arp,actions=output:" + str(ethc))
+        sr.cmd(
+            "ovs-oftcl add-flow " + p.switch + " priority=10,ip,nw_dst=" + ip_change(p.IP,3,0) +
+            "/24,arp,actions=output:" + str(ethc+1))
+        p_node.cmd("ip route add default via " + ip_change(ip, 3, 1))
+        ethc = ethc + 1
+
         for j,pd in enumerate(p.nodes['PDC']):
-            #TODO: Stopped Here!!!!!!!!!!!!!!!!!!!!!
-            # hw = net.get(topo.hosts())
-            eth = eth + str(ethc)
-            r.cmd("ifconfig " +rname+eth + "hw ether " + hw)
-            r.cmd("ip addr add " + p.IP + "/24 brd + dev "+rname+eth)
-            r.cmd("echo 1 > /proc/sys/net/ipv4/ip_forward")
+            eth = eth_pre + str(ethc)
+            spd = net.get(pd.switch)
+            r.cmd("ifconfig " + rname + eth+str(2*j+1) + " 0")
+            r.cmd("ifconfig " + rname + eth+str(2*j+2) + " 0")
+            r.cmd("ifconfig " +rname+eth + " hw ether " + hw)
+            # r.cmd("ip addr add " + pd.IP + "/24 brd + dev "+rname+eth)
+            print (pd.name)
+            print("PDC IP {}".format(pd.IP))
+            print("ifconfig " + rname + eth + " 0")
+            print("ifconfig " + rname + eth + " hw ether " + hw)
+            idx = idx + 1
+            hw = hw_change(hw, 5, idx)
+            spd.cmd(
+                "ovs-oftcl add-flow " + pd.switch + " priority=1,arp,actions=flood")
+            spd.cmd(
+                "ovs-oftcl add-flow " + pd.switch + " priority=65535,ip,dl_dst=" + hw +
+                ",arp,actions=output:"+str(2*j+1))
+            spd.cmd(
+                "ovs-oftcl add-flow " + pd.switch + " priority=10,ip,nw_dst=" + ip_change(p.IP,3,0) +
+                "/24,arp,actions=output:"+str(2*j+2))
+            pdc_node = net.get(pd.name)
+            pdc_node.cmd("ip route add default via " + ip_change(ip,3,1))
             ethc = ethc + 1
         for k, pm in enumerate(p.nodes['PMU']):
-            hw = pd.MAC
-            eth = eth + str(ethc)
-            r.cmd("ifconfig " + rname + eth + "hw ether " + hw)
-            r.cmd("ip addr add " + p.IP + "/24 brd + dev " + rname + eth)
-            r.cmd("echo 1 > /proc/sys/net/ipv4/ip_forward")
+            eth = eth_pre + str(ethc)
+            r.cmd("ifconfig " + rname + eth + " 0")
+            r.cmd("ifconfig " + rname + eth + " hw ether " + hw)
+            print (pm.name)
+            print("PMU IP {}".format(pm.IP))
+            print("ifconfig " + rname + eth + " 0")
+            print("ifconfig " + rname + eth + " hw ether " + hw)  #PMU actually tied to same port as PDC for now(same switch)
+            idx = idx + 1
+            hw = hw_change(hw, 5, idx)
+            pmu_node = net.get(pm.name)
+            pmu_node.cmd("ip route add default via " + ip_change(ip, 3, 1))
             ethc = ethc + 1
-    for i, host in topo.hosts():
-        ip = host.IP()
-        ip = ip_change(ip,3,1)
-        host.cmd("ip route add default via " + ip)
+        break
+
 
 
     CLI(net)

@@ -10,12 +10,15 @@ class Region():
     def __init__(self,params):
         self.ID = params['ID']              #Identifier
         self.router = params['router']      #Gateway
+        self.router_node = None
         self.IP = params['IP']
         self.coords = params['coords']      #Coordinate Location
         self.name = params['name']      #Operator Region Name
         self.region = params['region']
         self.connects = params['connects']
         self.MAC = params['MAC']
+        self.switch = None           #Switch Name
+        self.node = None               #Node Name
         self.ip_list = []
         self.id_list = []
         self.num_sws = 0
