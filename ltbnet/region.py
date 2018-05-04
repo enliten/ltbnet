@@ -25,5 +25,15 @@ class Region():
         self.num_pmus = params['num_pmus']
         self.num_pdcs = params['num_pdcs']
         self.nodes = {'PDC' : [], 'PMU' : []}    #Holds PDC and PMU Objects
+        # self.set_ip()
 
-
+    # def set_ip(self):
+    #     """Inherits router address from region or PDC, then adds IP"""
+    #     ldigs = self.IP.split('.')
+    #     self.IP = '.'.join((ldigs[0],ldigs[1],ldigs[2],ldigs[3]))
+    #     # print('{} IP address is {}'.format(self.name,self.IP))
+    def ip_change(self,ip,oct,num):
+        """Changes chosen ip Octet to given num"""
+        ldigs = ip.split('.')
+        ldigs[oct] = str(num)
+        self.IP = '.'.join(ldigs)

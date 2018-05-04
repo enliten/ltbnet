@@ -42,3 +42,9 @@ class Node():
         #     else:
         #         logging.error("IP {} currently in use by".format(i,name))
         #         return False
+
+    def ip_change(self,ip,oct,num):
+        """Changes chosen ip Octet to given num"""
+        ldigs = ip.split('.')
+        ldigs[oct] = str(num)
+        self.IP = '.'.join(ldigs)
