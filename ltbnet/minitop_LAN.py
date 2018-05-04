@@ -1,4 +1,6 @@
-
+"""Creates a mininet network based on the network configuration provided.
+Currently creates a LAN network."""
+#TODO: Merge slight differences between LAN and WAN configurations into one file.
 
 import re
 import sys
