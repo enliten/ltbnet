@@ -18,12 +18,21 @@ from mininet.link import Link,TCLink
 
 from region import Region
 from node import Node
-from minitop_LAN import LTBnet
+# from minitop_LAN import LTBnet
 from network import NetConfig
-
+import psse
 import logging
+import sys
+from math import sin, cos, atan2, sqrt
+
 logging.basicConfig(level=logging.ERROR)
 
+pi = 3.14159265358973
+jpi2 = 1.5707963267948966j
+rad2deg = 57.295779513082323
+deg2rad = 0.017453292519943
+R = 6371000         #Radius of Earth
+c = 299792458       #Speed of light
 # List of nearest cities to operator regions. The coordinate location for region centers is based on this list.
 #Alberta,CAN -British Columbia,CAN - Bonneville,WA-Vancouver,WA -Boise,ID- Boulder,CO -Lakewood,CO
 #Folsom,CA -Sacramento,CA, Rosemead,CA- Los Angeles,C - San Diego,CA-Glendale,AZ? -Phoenix,AZ, Albequerque,NM
@@ -37,10 +46,10 @@ regions = {'AESO':['BCTC'], 'BCTC': ['AESO','VRCC'], 'BPA':['VRCC'], 'VRCC':['LR
            'IPCO':['VRCC'], 'LRCC':['VRCC','WAPA'] , 'WAPA': ['LRCC'], 'CAIS': ['VRCC','PGE','SCE'],
            'PGE':['CAIS'], 'SCE': ['CAIS','LADW','SDGE','APS'], 'LADW': ['SCE'], 'SDGE': ['SCE'],
            'APS': ['SCE','SRP'], 'SRP': ['APS','PNM'], 'PNM': ['SRP']}
-coords ={'AESO':(53.93,116.57) , 'BCTC': (57.72,127.64), 'BPA' : (45.6373,121.97), 'VRCC': (45.63,122.67),
-         'IPCO': (43.61,116.21), 'LRCC':(40.015,105.27) , 'WAPA':(39.704,105.081), 'CAIS':(38.678,121.176),
-         'PGE': (38.581,121.494), 'SCE': (34.08,118.07), 'LADW': (34.052,118.243), 'SDGE': (32.715,117.161),
-         'APS': (33.538,112.186), 'SRP': (33.44,112.074), 'PNM': (35.084,106.65)}
+coords ={'AESO':(53.93,-116.57) , 'BCTC': (57.72,-127.64), 'BPA' : (45.6373,-121.97), 'VRCC': (45.63,-122.67),
+         'IPCO': (43.61,-116.21), 'LRCC':(40.015,-105.27) , 'WAPA':(39.704,-105.081), 'CAIS':(38.678,-121.176),
+         'PGE': (38.581,-121.494), 'SCE': (34.08,-118.07), 'LADW': (34.052,-118.243), 'SDGE': (32.715,-117.161),
+         'APS': (33.538,-112.186), 'SRP': (33.44,-112.074), 'PNM': (35.084,-106.65)}
 macs = ['7a:43:4f:ca:0d:23', #AESO
         '92:53:a7:1e:98:55', #BCTC
         '7e:79:01:74:7b:f1', #BPA
@@ -58,7 +67,7 @@ macs = ['7a:43:4f:ca:0d:23', #AESO
         '42:49:42:ac:7d:6e', #PNM
         ]
 
-setLogLevel('info')
+# setLogLevel('info')
 
 # CEPD00655 ethernet ports 1 and 2
 # hostports = ['enp4s0f0', 'enp4s0f1']
@@ -117,20 +126,47 @@ def rand_coords(crange):
     coord = (round(lat,3),round(long,3))
     return coord
 
+def haversine_d(coords1,coords2):
+    """Calculates haversine distance(distance over the earths surface between two points) and delay for line
+    coords1 = [lat1,long1]
+    coords2 = [lat2,long2]"""
+    phi1 = coords1[0]*deg2rad
+    phi2 = coords2[0]*deg2rad
+    delphi = (abs(coords2[1])-abs(coords1[1]))*deg2rad
+    dellam = (coords2[0]-coords1[0])*deg2rad
 
+    f = sin(delphi/2.0)*sin(delphi/2.0) + \
+        cos(phi1)*cos(phi1) + \
+        sin(dellam/2.0)*sin(dellam/2.0)
+    g = 2*atan2(sqrt(f),sqrt(1-f))
+    d = R*g
+    delay = d/c
+    ret = {'delay': str(delay)+'ms'}
+    return ret,d
 
 if __name__ == '__main__':
     OPS = []
     PDCS = []
     PMUS = []
-    config = NetConfig(name='test181',configfile='testconfig.py',path='/home/network_em/mininet/custom/')
+    config = NetConfig(name='test181',configfile='Curent02_final_ConstZCoords.raw',path='/Users/Kellen/PycharmProjects/ltbnet/ltbnet/')
 
     #Starting Router Addresses          #Start testing here,
     ROUTES = '192.168.1.1'
     IDS = 0
 
+
     pdcs = 1
-    pmus = 2
+    pmus = 0
+    #Get PMU Data from RAW file
+    pmudata = psse.read('Curent02_final_ConstZCoords.raw')  #TODO: Change to proper path on network em
+    pmudata = psse.knn_reg(pmudata,coords)
+    PMUReg = {reg : [] for reg in points}
+    for id in pmudata.keys():
+        for reg in PMUReg.keys():
+            if pmudata[id]['Region'] == reg:
+                PMUReg[reg].append({pmudata[id]['Name'] : pmudata[id]['Coords']})
+                break
+
 
     #Regions
     gate = 2
@@ -171,10 +207,11 @@ if __name__ == '__main__':
 
         #PMUS
         tmppmu = {}
-        for n in range(0,reg.num_pmus):
-            crange = (reg.coords[0]-1,reg.coords[0]+1,reg.coords[1]-1,reg.coords[1]+1)
-            name = reg.region + '_PMU_' + str(n)
-            params = dict(RegNode=reg,region=reg.name,typen='PMU', name=name,coords=rand_coords(crange))
+        for pmu in PMUReg[p]:
+            info = pmu.items()
+            name = reg.region + '_PMU_' + str(info[0][0])
+            pmucoords = info[0][1]
+            params = dict(RegNode=reg,region=reg.name,typen='PMU', name=name,coords=list(pmucoords))
             PMUS.append(Node(params))
             reg.nodes['PMU'].append(PMUS[-1])
             PMUS[-1].IP = ip_change(ROUTES,3,ips)
@@ -185,17 +222,18 @@ if __name__ == '__main__':
 
         config.PMUS[reg.name] = tmppmu
         gate = gate + reg.num_sws
-
-    opts = dict(Regions = OPS, PDCS = PDCS, PMUS = PMUS)
-    topo = LTBnet(opts,config=config,lan=True)
-    # c2 = RemoteController('c2', ip='127.0.0.1',port=6633)
-    # net = Mininet(topo=topo,controller=c2,link=TCLink,switch=OVSKernelSwitch)
-    topo.config.set_config()
-    net = Mininet(topo=topo)
-
+    sys.exit()
+    #
+    # opts = dict(Regions = OPS, PDCS = PDCS, PMUS = PMUS)
+    # topo = LTBnet(opts,config=config,lan=True)
+    # # c2 = RemoteController('c2', ip='127.0.0.1',port=6633)
+    # # net = Mininet(topo=topo,controller=c2,link=TCLink,switch=OVSKernelSwitch)
+    # topo.config.set_config()
     # net = Mininet(topo=topo)
-
-    net.start()
-
-    CLI(net)
-    net.stop()
+    #
+    # # net = Mininet(topo=topo)
+    #
+    # net.start()
+    #
+    # CLI(net)
+    # net.stop()
