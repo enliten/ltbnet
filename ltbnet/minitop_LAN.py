@@ -41,7 +41,7 @@ class LTBnet(Topo):
     def build(self,opts,config='',lan=True):
         """Builds mininet topology from the config file. Adds network information for routers and
         switches to a config object"""
-        #TODO:make the config object do all of the network building, i.e don't use separate LTBnet structures
+        #TODO:Different Switch Topologies for regions. All connect to 1 per region for now.
         self.config = config
         self.Regions = opts['Regions']
         self.RegionsD = {node.name : node for node in self.Regions}
