@@ -14,8 +14,8 @@ from mininet.log import setLogLevel, info, error
 from mininet.node import Node
 from math import sin, cos, atan2, sqrt
 
-# from mininet.link import Link,TCLink
-# from mininet.node import OVSSwitch, Controller, RemoteController,Node
+from mininet.link import Link,TCLink
+from mininet.node import OVSSwitch, Controller, RemoteController,Node
 
 pp = pprint.PrettyPrinter(indent=4)
 pi = 3.14159265358973
@@ -77,20 +77,22 @@ class LTBnet(Topo):
         # pp.pprint(self.Switches)
 
     def haversine_d(self,coords1,coords2):
-        """Calculates haversine distance(distance over the earths surface between two points) and delay for line
+        """Calculates haversine distance(distance over the earths surface between two points) and delay for line.
+        This is for a straight path. Following link lines between regions
         coords1 = [lat1,long1]
         coords2 = [lat2,long2]"""
         phi1 = coords1[0]*deg2rad
         phi2 = coords2[0]*deg2rad
-        delphi = (coords2[1]-coords1[1])*deg2rad
-        dellam = (coords2[0]-coords1[0])*deg2rad
+        delphi = (coords2[0]-coords1[0])*deg2rad
+        dellam = (abs(coords2[1]) - abs(coords1[1])) * deg2rad
 
         f = sin(delphi/2.0)*sin(delphi/2.0) + \
-            cos(phi1)*cos(phi1) + \
+            cos(phi1)*cos(phi2) + \
             sin(dellam/2.0)*sin(dellam/2.0)
         g = 2*atan2(sqrt(f),sqrt(1-f))
         d = R*g
         delay = d/c
+        delay = round(delay,6)
         ret = {'delay': str(delay)+'ms'}
         return ret
 
@@ -143,13 +145,13 @@ class LTBnet(Topo):
 
             self.Nodes['Regions'][reg.name]=n
             for i,pd in enumerate(reg.nodes['PDC']):
-                pdname = reg.name + '_PDC_'+ str(i)
+                pdname = pd.name
                 npd = self.addHost(pdname,ip=pd.IP)
                 pd.node = (npd,pdname)
                 self.Nodes['PDCS'][reg.name] = npd
 
             for i,pm in enumerate(reg.nodes['PMU']):
-                pmname = reg.name + '_PMU_'+ str(i)
+                pmname = pm.name
                 npm = self.addHost(pmname,ip=pm.IP)
                 pm.node = npm
                 self.Nodes['PMUS'][reg.name] = npm
@@ -181,7 +183,13 @@ class LTBnet(Topo):
                 if checkcon1 not in self.Router['Connects'] and checkcon2 not in self.Router['Connects']:
 
                     logging.info('Linking routers from {} to {}'.format(h1.name,h2))
-                    self.addLink(self.Router[h1.name],self.Router[h2],**self.haversine_d(h1.coords,self.config.Regions[h2]['Coords']))
+                    # TODO:Mininet AddLink not taking delay dictionary
+                    # delay = self.haversine_d(h1.coords,self.config.Regions[h1.region]['Coords'])
+                    # linkset = dict(bw=10, delay=delay['delay'],loss=10,
+                    #                            max_queue_size=100, use_htb=True)
+                    # self.addLink(self.Router[h1.name],self.Router[h2],**linkset)
+
+                    self.addLink(self.Router[h1.name],self.Router[h2])
                     self.config.InterConnects.append([{h1.name:self.Router[h1.name]}, {h2:self.Router[h2]}])
                     # self.config.InterConnects[h2].append([self.Router[h2], self.Router[h1.name]])
                     self.Router['Connects'].append(checkcon1)
@@ -207,7 +215,7 @@ class LTBnet(Topo):
                                                          'HW_ADDR': 0}  # TODO: make switch coords and get HW_ADDR
                 h1.switch = sname
                 self.Switches['PDCS'][h1.name][0].append(sname)
-                self.addLink(h1.name, sname,**self.haversine_d(h1.coords,self.config.Regions[h1.region]['Coords']))
+                self.addLink(h1.name, sname)
                 self.config.Connects[h1.region].append([h1.name, sname])    #Add "Router"Connect as r1 even though it is switch
                 self.addLink(sname, self.Router[h1.region])
                 self.config.Connects[h1.region].append([sname, self.Router[h1.region]])
@@ -229,7 +237,8 @@ class LTBnet(Topo):
                     pds = self.Switches['PDCS'][pd.name][0][-1]
                     self.Switches['PMUS'][h1.name][0].append(pds)
                     h1.switch = pd.switch
-                    self.addLink(h1.name, pds,**self.haversine_d(h1.coords,self.config.Regions[h1.region]['Coords']))
+
+                    self.addLink(h1.name, pds)
                     self.config.Connects[h1.region].append([h1.name, pds])
 
                 else:

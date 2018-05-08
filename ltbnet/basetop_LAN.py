@@ -18,7 +18,7 @@ from mininet.link import Link,TCLink
 
 from region import Region
 from node import Node
-# from minitop_LAN import LTBnet
+from minitop_LAN import LTBnet
 from network import NetConfig
 import psse
 import logging
@@ -33,39 +33,7 @@ rad2deg = 57.295779513082323
 deg2rad = 0.017453292519943
 R = 6371000         #Radius of Earth
 c = 299792458       #Speed of light
-# List of nearest cities to operator regions. The coordinate location for region centers is based on this list.
-#Alberta,CAN -British Columbia,CAN - Bonneville,WA-Vancouver,WA -Boise,ID- Boulder,CO -Lakewood,CO
-#Folsom,CA -Sacramento,CA, Rosemead,CA- Los Angeles,C - San Diego,CA-Glendale,AZ? -Phoenix,AZ, Albequerque,NM
-points = ['AESO', 'BCTC', 'BPA', 'VRCC', 'IPCO', 'LRCC' , 'WAPA', 'CAIS', 'PGE', 'SCE', \
-          'LADW', 'SDGE', 'APS', 'SRP', 'PNM']
 
-pdcdata = dict()    # key: name, {keys: name,ID,coords,router}
-pmudata = dict()    #keys: pdcname,ID,coords,ip,level
-
-regions = {'AESO':['BCTC'], 'BCTC': ['AESO','VRCC'], 'BPA':['VRCC'], 'VRCC':['LRCC','BPA','IPCO','BCTC','CAIS'],
-           'IPCO':['VRCC'], 'LRCC':['VRCC','WAPA'] , 'WAPA': ['LRCC'], 'CAIS': ['VRCC','PGE','SCE'],
-           'PGE':['CAIS'], 'SCE': ['CAIS','LADW','SDGE','APS'], 'LADW': ['SCE'], 'SDGE': ['SCE'],
-           'APS': ['SCE','SRP'], 'SRP': ['APS','PNM'], 'PNM': ['SRP']}
-coords ={'AESO':(53.93,-116.57) , 'BCTC': (57.72,-127.64), 'BPA' : (45.6373,-121.97), 'VRCC': (45.63,-122.67),
-         'IPCO': (43.61,-116.21), 'LRCC':(40.015,-105.27) , 'WAPA':(39.704,-105.081), 'CAIS':(38.678,-121.176),
-         'PGE': (38.581,-121.494), 'SCE': (34.08,-118.07), 'LADW': (34.052,-118.243), 'SDGE': (32.715,-117.161),
-         'APS': (33.538,-112.186), 'SRP': (33.44,-112.074), 'PNM': (35.084,-106.65)}
-macs = ['7a:43:4f:ca:0d:23', #AESO
-        '92:53:a7:1e:98:55', #BCTC
-        '7e:79:01:74:7b:f1', #BPA
-        '72:a0:ec:58:b4:64', #VRCC
-        '6a:3f:cc:21:bb:01', #IPCO
-        '16:d7:c3:d2:9c:34', #LRCC
-        'b6:5f:39:75:f5:b9', #WAPA
-        '52:31:94:6c:12:6c', #CAISO
-        'be:dd:b5:a9:5e:30', #PG&E
-        '72:5e:30:03:ac:dd', #SCE
-        'f6:5c:95:75:da:76', #LADWP
-        'aa:a4:86:81:48:1e', #SDGE
-        'f6:e7:cd:a9:96:7f', #APS
-        '72:83:f2:39:1c:5b', #SRP
-        '42:49:42:ac:7d:6e', #PNM
-        ]
 
 # setLogLevel('info')
 
@@ -74,27 +42,6 @@ macs = ['7a:43:4f:ca:0d:23', #AESO
 # switchnames = ['s1', 's2']
 # portsw = {1: ('enp4s0f0', 's1'), 2: ('enp4s0f1', 's2')}
 
-# Default line setting configurations
-linkset = {1: {'setting': {'bw': 10, 'delay': '5ms', 'loss': 10,
-                           'max_queue_size': 100, 'use_htb': True},
-               'l1': 'hPMU', 'l2': 's1'},
-           2: {'setting': {'bw': 10, 'delay': '5ms', 'loss': 10,
-                           'max_queue_size': 100, 'use_htb': True},
-               'l1': 'hPDC', 'l2': 's2'},
-           3: {'setting': {'bw': 10, 'delay': '5ms', 'loss': 10,
-                           'max_queue_size': 100, 'use_htb': True},
-               'l1': 's1', 'l2': 's2'}}
-# opts = {'hostnames': hostnames, 'hostports': hostports, 'switchnames': switchnames, \
-#         'link_config': linkset, 'port_to_switch': portsw}
-
-
-# The next 4 functions are for a psuedo topology and con be removed when a config file is created.
-def add_connect(node, connects):
-    for c in connects:
-        if c != node and (c not in regions[node]) :
-            regions[node].append(c)
-        else:
-            logging.warning("Cannot connect point with itself")
 
 def ip_change(ip,oct,num):
     """Changes chosen ip Octet to given num"""
@@ -116,39 +63,11 @@ def hw_change(addr,sect,num):
         newhw = ':'.join(ldigs)
     return newhw
 
-def rand_coords(crange):
-    ll = crange[0]
-    lh = crange[1]
-    lol = crange[2]
-    loh = crange[3]
-    long = uniform(lol,loh)
-    lat = uniform(ll,lh)
-    coord = (round(lat,3),round(long,3))
-    return coord
-
-def haversine_d(coords1,coords2):
-    """Calculates haversine distance(distance over the earths surface between two points) and delay for line
-    coords1 = [lat1,long1]
-    coords2 = [lat2,long2]"""
-    phi1 = coords1[0]*deg2rad
-    phi2 = coords2[0]*deg2rad
-    delphi = (abs(coords2[1])-abs(coords1[1]))*deg2rad
-    dellam = (coords2[0]-coords1[0])*deg2rad
-
-    f = sin(delphi/2.0)*sin(delphi/2.0) + \
-        cos(phi1)*cos(phi1) + \
-        sin(dellam/2.0)*sin(dellam/2.0)
-    g = 2*atan2(sqrt(f),sqrt(1-f))
-    d = R*g
-    delay = d/c
-    ret = {'delay': str(delay)+'ms'}
-    return ret,d
 
 if __name__ == '__main__':
     OPS = []
     PDCS = []
     PMUS = []
-    config = NetConfig(name='test181',configfile='Curent02_final_ConstZCoords.raw',path='/Users/Kellen/PycharmProjects/ltbnet/ltbnet/')
 
     #Starting Router Addresses          #Start testing here,
     ROUTES = '192.168.1.1'
@@ -157,15 +76,9 @@ if __name__ == '__main__':
 
     pdcs = 1
     pmus = 0
-    #Get PMU Data from RAW file
-    pmudata = psse.read('Curent02_final_ConstZCoords.raw')  #TODO: Change to proper path on network em
-    pmudata = psse.knn_reg(pmudata,coords)
-    PMUReg = {reg : [] for reg in points}
-    for id in pmudata.keys():
-        for reg in PMUReg.keys():
-            if pmudata[id]['Region'] == reg:
-                PMUReg[reg].append({pmudata[id]['Name'] : pmudata[id]['Coords']})
-                break
+    #Get PMU Data from config file, add data from RAW file and append to new file if need be
+    config = NetConfig(name='test181',configfile='config.csv',raw='Curent02_final_ConstZCoords.raw',path='/home/network_em/PycharmProjects/ltbnet/ltbnet/')
+
 
 
     #Regions
@@ -173,29 +86,27 @@ if __name__ == '__main__':
     sws = 2 #Number of switches per region  ( Should be specified in Config File)
     #There are no routers in this implementation. Every node is in same subnet
     ips = 2     #IP addresses start at 192.168.1.2, then every node increments as 192.168.1.n (where n is number of nodes + 2
-    for i, p in enumerate(points):
+    for i, reg in enumerate(config.regs):
         route = ip_change(ROUTES,2,str(gate))
         id = str(gate)
         ip = ip_change(ROUTES,3,ips)
         ips += 1
-        params = dict(ID=id,router=route,IP=ip,region=p, name=p,type='OP', coords=list(coords[p]),
-                      connects=regions[p],MAC=macs[i],num_pmus=pmus,num_pdcs=pdcs)
+
+        params = dict(ID=id,router=route,IP=ip,region=reg, name=reg,type='OP', coords=config.Coords[reg],
+                      connects=config.Connects[reg],MAC=config.Macs[reg],num_pmus=pmus,num_pdcs=pdcs)
         OPS.append(Region(params))
         OPS[-1].num_sws = sws
-        config.Regions[p] = {'Coords': list(coords[p]),
-                             'HW_ADDR': macs[i],
-                             'Gateway': ip}
-
-        config.nRegions = i
+        config.Regions[reg].update({'Gateway': ip})
 
         # PDCS
         reg = OPS[-1]
         # print("PDCS")
         tmppd = {}
         for n in range(0,reg.num_pdcs):
-            crange = (reg.coords[0]-1,reg.coords[0]+1,reg.coords[1]-1,reg.coords[1]+1)
-            name = reg.region + '_PDC_' + str(n)
-            params = dict(RegNode=reg,region=reg.name, typen='PDC',name=name,coords=rand_coords(crange))
+            #TODO: ADD PDCS To config file. Currently adding 1 for each region.Not defined in config file
+            # crange = (reg.coords[0]-1,reg.coords[0]+1,reg.coords[1]-1,reg.coords[1]+1)
+            name = reg.region + 'PDC' + str(n)
+            params = dict(RegNode=reg,region=reg.name, typen='PDC',name=name,coords=config.Coords[reg.name])
             PDCS.append(Node(params))
             reg.nodes['PDC'].append(PDCS[-1])
             PDCS[-1].IP = ip_change(ROUTES,3,ips)
@@ -207,33 +118,33 @@ if __name__ == '__main__':
 
         #PMUS
         tmppmu = {}
-        for pmu in PMUReg[p]:
-            info = pmu.items()
-            name = reg.region + '_PMU_' + str(info[0][0])
-            pmucoords = info[0][1]
-            params = dict(RegNode=reg,region=reg.name,typen='PMU', name=name,coords=list(pmucoords))
-            PMUS.append(Node(params))
-            reg.nodes['PMU'].append(PMUS[-1])
-            PMUS[-1].IP = ip_change(ROUTES,3,ips)
-            ips += 1
-            reg.ip_list.append(PMUS[-1].IP)
-            tmppmu[name] = {'Coords': list(PMUS[-1].coords), 'HW_ADDR': 0, 'IP': PMUS[-1].IP}
-            config.nPMUS[reg.name] += 1
+        if reg.name not in config.PMUS.keys():
+            continue
+        else:
+            for pmu in config.PMUS[reg.name]:
+                params = dict(RegNode=reg,region=reg.name,typen='PMU', name=pmu,coords=config.PMUS[reg.name][pmu]['Coords'])
+                PMUS.append(Node(params))
+                reg.nodes['PMU'].append(PMUS[-1])
+                PMUS[-1].IP = ip_change(ROUTES,3,ips)
+                ips += 1
+                reg.ip_list.append(PMUS[-1].IP)
+                config.PMUS[reg.name][pmu].update({'IP': PMUS[-1].IP})
+                config.nPMUS[reg.name] += 1
 
-        config.PMUS[reg.name] = tmppmu
+        # config.PMUS[reg.name] = tmppmu
         gate = gate + reg.num_sws
-    sys.exit()
-    #
-    # opts = dict(Regions = OPS, PDCS = PDCS, PMUS = PMUS)
-    # topo = LTBnet(opts,config=config,lan=True)
-    # # c2 = RemoteController('c2', ip='127.0.0.1',port=6633)
-    # # net = Mininet(topo=topo,controller=c2,link=TCLink,switch=OVSKernelSwitch)
-    # topo.config.set_config()
+
+
+    opts = dict(Regions = OPS, PDCS = PDCS, PMUS = PMUS)
+    topo = LTBnet(opts,config=config,lan=True)
+    # c2 = RemoteController('c2', ip='127.0.0.1',port=6633)
+    # net = Mininet(topo=topo,controller=c2,link=TCLink,switch=OVSKernelSwitch)
+    topo.config.set_config()
+    net = Mininet(topo=topo)
+
     # net = Mininet(topo=topo)
-    #
-    # # net = Mininet(topo=topo)
-    #
-    # net.start()
-    #
-    # CLI(net)
-    # net.stop()
+
+    net.start()
+
+    CLI(net)
+    net.stop()

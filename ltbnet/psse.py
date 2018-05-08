@@ -2,7 +2,8 @@
 import logging
 import os
 import re
-from basetop_LAN import haversine_d
+from minitop_LAN import LTBnet
+
 
 
 NEVER = 60
@@ -120,16 +121,19 @@ def read(file):
     return PMU
 
 def knn_reg(PMU,regcoords):
-    """Assigns Area to Closest Regions Coordinates"""
+    """Assigns Area to Closest Regions Coordinates using longitude. If need to tie break, add latitude"""
+
     distance = 1000000000000
     tmpreg = ""
     dhold = 0
     for id, info in PMU.items():
         for region in regcoords.keys():
-            _, dhold = haversine_d(PMU[id]['Coords'],regcoords[region])
+            dhold = abs(PMU[id]['Coords'][1] - regcoords[region][1])
             if dhold < distance:
                 distance = dhold
                 tmpreg = region
+
+        distance = 1000000000000
         PMU[id]['Region'] = tmpreg
 
     return PMU

@@ -15,7 +15,7 @@ class Node():
         self.ID = 0                         #Identifier
         self.IP = str()                     #IP
         self.coords = params['coords']      #Coordinate Location
-        self.name = self.RegNode.region + '_' +self.typen + '_' + str(len(self.RegNode.nodes[self.typen]))                      #Region+name
+        self.name = params['name']                      #Region+name
         self.region = params['region']
         self.switch = None               #Switch Name
         self.router_mac = None
