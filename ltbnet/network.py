@@ -121,14 +121,24 @@ class NetConfig():
 
     def get_raw(self):
         """Adds Raw PMU data if specified"""
-
+        #TODO:Strip Characters set max length of name
+        namel = dict()
         if os.path.exists(self.path + '/' + self.raw):
             pmudata = psse.read(self.raw)
             pmudata = psse.knn_reg(pmudata, self.RegCoords)
             with open('config.csv', 'a') as fout:
                 writer = csv.writer(fout)
                 for id in pmudata.keys():
-                    dat = ['PMU',pmudata[id]['Region'],pmudata[id]['Name'],pmudata[id]['Coords'][0],pmudata[id]['Coords'][1],'EMPTY','EMPTY']
+                    name = pmudata[id]['Name']
+                    if name in namel.keys():
+                        namel[name].append(name + '_' + str((len(namel[name])-1) + 1))
+                        name = name + str(len(namel[name]) + 1)
+                    else:
+                        namel[name] = []
+                        namel[name].append(name)
+                    name = name.replace(" ","")
+                    dat = ['PMU', pmudata[id]['Region'], name, pmudata[id]['Coords'][0],
+                           pmudata[id]['Coords'][1], 'EMPTY', 'EMPTY']
                     writer.writerow(dat)
 
         else:
