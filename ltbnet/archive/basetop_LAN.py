@@ -77,7 +77,7 @@ if __name__ == '__main__':
     pdcs = 1
     pmus = 0
     #Get PMU Data from config file, add data from RAW file and append to new file if need be
-    config = NetConfig(name='test181',configfile='config.csv',raw='Curent02_final_ConstZCoords.raw',path='/home/network_em/PycharmProjects/ltbnet/ltbnet/')
+    config = NetConfig(name='test181',configfile='config.csv',raw='Curent02_final_ConstZCoords.raw',path='')
 
 
 

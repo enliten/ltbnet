@@ -87,12 +87,12 @@ def hw_change(addr,sect,num):
     num should be no more than 2 digits"""
     if num < 10:
         ldigs = addr.split(':')
-        print ldigs
+        print(ldigs)
         ldigs[sect] = "0" + str(num)
         newhw = ':'.join(ldigs)
     elif num < 99 and num >= 10:
         ldigs = addr.split(':')
-        print ldigs
+        print(ldigs)
         ldigs[sect] = str(num)
         newhw = ':'.join(ldigs)
     return newhw

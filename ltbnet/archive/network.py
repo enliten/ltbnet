@@ -1,16 +1,15 @@
 """Network Object for storing network configurations and creating a Network Dictionary for
 JSON format streaming on the LTB network"""
 
-from region import Region
-from node import Node
-from minitop_WAN import LTBnet
+import csv
+import logging
+import os
+import sys
+
 import psse
 
-
-import os,sys
-import logging
-import csv
 logging.basicConfig(level=logging.ERROR)
+
 
 
 class NetConfig():
@@ -115,8 +114,6 @@ class NetConfig():
                         self.PMUS[reg].update({name: {'Coords': coords,'HW_ADDR':mac}})
                     else:
                         self.PMUS[reg] = {name: {'Coords': coords,'HW_ADDR':mac}}
-
-
 
 
     def get_raw(self):

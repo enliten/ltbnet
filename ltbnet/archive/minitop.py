@@ -73,7 +73,7 @@ class LTBnet(Topo):
             r = self.addHost(rname,ip=reg.router)
             reg.router_node = rname
             self.Router[reg.name] = r
-            print reg.IP
+            print(reg.IP)
             n = self.addHost(reg.name,ip=reg.IP,mac=reg.MAC)
             reg.node = rname
             rnum = rnum + 1

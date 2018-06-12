@@ -40,8 +40,8 @@ macs = {'AESO':'7a:43:4f:ca:0d:23',
         'PNM':'42:49:42:ac:7d:6e',
         }
 name = ['my_network']
-Headers = ['Type','Region','Name','Longitude', 'Latitude', 'Connections','MAC']
-with open('config.csv','wb') as fout:
+Headers = ['Idx','Type','Region','Name','Longitude', 'Latitude', 'Connections','MAC']
+with open('config_new.csv','wb') as fout:
     writer = csv.writer(fout)
     writer.writerow(['Name='+name[0]])
     writer.writerow(Headers)
