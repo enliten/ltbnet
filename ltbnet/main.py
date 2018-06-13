@@ -23,7 +23,12 @@ def main(*args, **kwargs):
     network = Network().setup(config)
 
     net = Mininet(topo=network)
+
+    if network.HwIntf.n:
+        network.add_hw_intf(net)
+
     net.start()
+    print('LTBNet Ready')
     CLI(net)
 
     net.stop()

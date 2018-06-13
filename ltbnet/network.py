@@ -1,3 +1,5 @@
+import sys
+import re
 
 from mininet.topo import Topo
 from mininet.link import Intf
@@ -5,7 +7,7 @@ from mininet.link import Intf
 from mininet import log
 from mininet.node import Node
 
-import sys
+from ltbnet.utils import check_intf
 
 
 class Network(Topo):
@@ -18,6 +20,7 @@ class Network(Topo):
         self.Router = Router()
         self.PMU = PMU()
         self.Link = Link()
+        self.HwIntf = HwIntf()
 
         self.components = []
 
@@ -120,6 +123,13 @@ class Network(Topo):
         else:
             return idx
 
+    def add_hw_intf(self, net):
+        """Add hardware interfaces from Network.HwIntf records"""
+        for i, name, connect in zip(range(self.HwIntf.n), self.HwIntf.name, self.HwIntf.connections):
+            for c in connect:
+                switch_index = self.Switch.lookup_index(c)
+                log.info('*** Adding hardware interface', name, 'to switch', c, '\n')
+                r = Intf(name, node=net.switches[switch_index])
 
 
 class Record(object):
@@ -137,6 +147,7 @@ class Record(object):
         self.prefix = ''
         self.connections = []
         self.mn_name = []
+        self.mn_object = []
 
         self.build()
 
@@ -168,6 +179,17 @@ class Record(object):
         self.idx.append(idx)
         self.connections.append(conn)
         self.n += 1
+
+    def lookup_index(self, idx, canonical=False):
+        """Return the numerical index of the the element `idx`"""
+        records = self.idx
+        if canonical:
+            records = self.mn_name
+
+        if idx not in records:
+            return -1
+        return records.index(idx)
+
 
     def dump(self):
         """Return a string of the dumped records in csv format"""
@@ -204,14 +226,16 @@ class Record(object):
 
     def add_node_to_mn(self, network):
         """Method to add all elements to a Mininet Topology"""
-        if self._name not in ('Switch', 'Router', 'PDC', 'PMU', 'HwIntf'):
+        if self._name not in ('Switch', 'Router', 'PDC', 'PMU'):
             return
 
         for i, name, ip in zip(range(self.n), self.mn_name, self.ip):
             if self._name == 'Switch':
-                network.addSwitch(name)
+                n = network.addSwitch(name)
+                self.mn_object.append(n)
             else:
-                network.addHost(name, ip=ip)
+                n = network.addHost(name, ip=ip)
+                self.mn_object.append(n)
                 # log.debug('Adding {ty} <{n}, {ip}> to network.'.format(ty=self._name, n=name, ip=ip))
 
     def add_link_to_mn(self, network):
@@ -224,6 +248,8 @@ class Record(object):
             for c in connect:
                 # if c is a switch, look up its canonical name
                 c = network.to_canonical(c)
+
+                # TODO: Check if `c` is a network component
 
                 if not network.Link.exist_undirectioned(name, c):
                     r = network.addLink(name, c)
@@ -296,3 +322,5 @@ class Link(object):
 
 class HwIntf(Record):
     """Hardware Interface class"""
+    def add_link_to_mn(self, network):
+        pass

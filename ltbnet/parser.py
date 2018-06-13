@@ -11,6 +11,9 @@ def parse_config_csv(file, path=''):
     flag = False
     with open(os.path.join(path, file)) as f:
         for num, line in enumerate(f):
+            if not line.strip():
+                continue
+
             if line.startswith('#'):
                 continue
             data = line.strip().split(',')
