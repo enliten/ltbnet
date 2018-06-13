@@ -82,21 +82,26 @@ class Network(Topo):
     def assign_ip(self, base='192.168.1.'):
         """Assign IP address in a LAN"""
 
-        for item in self.components:
-            self.__dict__[item].ip = [''] * self.__dict__[item].n
+        # for item in self.components:
+        #     self.__dict__[item].ip = [''] * self.__dict__[item].n
 
         count = 1
 
         # for PDCs
-        self.PDC.ip = [''] * self.PDC.n
+        # self.PDC.ip = [''] * self.PDC.n
         for i in range(self.PDC.n):
             count += 1
+            if self.PDC.ip[i]:
+                continue
             self.PDC.ip[i] = base + str(count)
 
         # for PMUs
-        self.PMU.ip = [''] * self.PMU.n
+        # self.PMU.ip = [''] * self.PMU.n
         for i in range(self.PMU.n):
             count += 1
+            if self.PMU.ip[i]:
+                continue
+
             self.PMU.ip[i] = base + str(count)
 
     def add_node_to_mn(self):
@@ -114,6 +119,7 @@ class Network(Topo):
             return self.Switch.mn_name[self.Switch.idx.index(idx)]
         else:
             return idx
+
 
 
 class Record(object):
@@ -198,7 +204,7 @@ class Record(object):
 
     def add_node_to_mn(self, network):
         """Method to add all elements to a Mininet Topology"""
-        if self._name not in ('Switch', 'Router', 'PDC', 'PMU'):
+        if self._name not in ('Switch', 'Router', 'PDC', 'PMU', 'HwIntf'):
             return
 
         for i, name, ip in zip(range(self.n), self.mn_name, self.ip):
@@ -286,3 +292,7 @@ class Link(object):
             ret = True
 
         return ret
+
+
+class HwIntf(Record):
+    """Hardware Interface class"""
