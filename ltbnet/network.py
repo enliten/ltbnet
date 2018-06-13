@@ -1,10 +1,4 @@
-# TODO: Hardware Interface Binding
-# TODO: Router support
 
-import os
-
-from mininet.net import Mininet
-from mininet.cli import CLI
 from mininet.topo import Topo
 from mininet.link import Intf
 
@@ -12,28 +6,6 @@ from mininet import log
 from mininet.node import Node
 
 import sys
-
-
-def parse_config_csv(file, path=''):
-    """Parses an LTBNet config.csv file and return the contents in a dictionary"""
-    keys = list()
-    out = list()
-    flag = False
-    with open(os.path.join(path, file)) as f:
-        for num, line in enumerate(f):
-            if line.startswith('#'):
-                continue
-            data = line.strip().split(',')
-
-            # Use the first valid line as the keys
-            if not flag:
-                keys = data
-                flag = True
-                continue
-
-            out.append({k: v for k, v in zip(keys, data)})
-
-    return out
 
 
 class Network(Topo):
@@ -66,6 +38,7 @@ class Network(Topo):
         self.assign_ip()
         self.add_node_to_mn()
         self.add_link_to_mn()
+        return self
 
     def dump(self, path=None):
         """Dump the configuration to a csv file"""
@@ -313,19 +286,3 @@ class Link(object):
             ret = True
 
         return ret
-
-
-if __name__ == '__main__':
-
-    log.setLogLevel('info')
-    network = Network()
-
-    config = parse_config_csv('config.csv', )
-    network.setup(config)
-    # network.dump()
-
-    net = Mininet(topo=network)
-    net.start()
-    CLI(net)
-
-    net.stop()
