@@ -1,6 +1,3 @@
-# TODO: Hardware Interface Binding
-# TODO: Router support
-
 import os
 
 
