@@ -8,6 +8,7 @@ from mininet import log
 from mininet.node import Node
 
 from ltbnet.utils import check_intf
+from ltbnet.minipmu import MiniPMU
 
 
 class Network(Topo):
@@ -270,7 +271,10 @@ class Region(Record):
 
 class PMU(Record):
     """Data streaming PMU node class"""
-    pass
+    def run_pmu(self, network):
+        """Run pyPMU on the defined PMU nodes"""
+        for i in range(1):
+            pass
 
 
 class PDC(Record):
