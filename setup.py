@@ -11,7 +11,8 @@ setup(name='ltbnet',
       packages=['ltbnet'],
       entry_points={
           'console_scripts': [
-              'ltbnet = ltbnet.main:main'
+              'ltbnet = ltbnet.main:main',
+              'minipmu = ltbnet.minipmu:main',
           ]
       },
       )
