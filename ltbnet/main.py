@@ -29,12 +29,9 @@ def main(*args, **kwargs):
 
     net.start()
     print('LTBNet Ready')
-
     network.PMU.run_pmu(net)
-
     CLI(net)
-
-    net.stop()
+    # net.stop()
 
 
 if __name__ == '__main__':

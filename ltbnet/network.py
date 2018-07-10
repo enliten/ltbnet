@@ -278,7 +278,7 @@ class PMU(Record):
         for i in range(self.n):
             name = self.mn_name[i]
             node = network.get(name)
-            node.sendCmd(run_minipmu.format(port=1410,
+            node.popen(run_minipmu.format(port=1410,
                                             pmu_idx=1,
                                             name=self.name[i]),
                          )  # TODO: Get bus idx by PMU name
