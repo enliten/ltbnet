@@ -273,14 +273,15 @@ class PMU(Record):
     """Data streaming PMU node class"""
     def run_pmu(self, network):
         """Run pyPMU on the defined PMU nodes"""
-
+        print(self.name)
         run_minipmu = 'minipmu {port} {pmu_idx} -n={name}'
         for i in range(self.n):
             name = self.mn_name[i]
             node = network.get(name)
             node.popen(run_minipmu.format(port=1410,
-                                            pmu_idx=1,
-                                            name=self.name[i]),
+                                          pmu_idx=1,
+                                          name=self.name[i]
+                                          ),
                          )  # TODO: Get bus idx by PMU name
 
 class PDC(Record):

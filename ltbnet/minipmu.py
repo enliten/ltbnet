@@ -65,9 +65,12 @@ class MiniPMU(object):
         """
         self.logger.info('Connecting to server at {}'.format(self.dime_address))
         assert self.dimec.start()
+
         # clear data in the DiME server queue
-        self.dimec.exit()
-        assert self.dimec.start()
+        # ===================================
+        # self.dimec.exit()
+        # assert self.dimec.start()
+
         self.logger.info('DiME client connected')
 
     def respond_to_sim(self):
