@@ -16,9 +16,9 @@ def main(*args, **kwargs):
     parser = argparse.ArgumentParser(description="CURENT LTB network emulator")
     parser.add_argument('config', help='PMU network configuration file in csv format')
     parser.add_argument('-c', dest='clean', action='store_true',
-            help='clean MiniPMU and Mininet processes')
+                        help='clean MiniPMU and Mininet processes')
     parser.add_argument('--verbose', '-v', action='store_true',
-            help='enable INFO level verbose logging')
+                        help='enable INFO level verbose logging')
     cli_args = parser.parse_args()
 
     if cli_args.verbose:
@@ -45,7 +45,7 @@ def main(*args, **kwargs):
 def clean(*args, **kwargs):
     """Clean up MiniPmu processes and Mininet sessions"""
     os.system("sudo mn -c")
-    os.system("sudo pkill mininet")
+    os.system("sudo pkill minipmu")
 
 
 if __name__ == '__main__':
