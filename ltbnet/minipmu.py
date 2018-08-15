@@ -57,8 +57,8 @@ class MiniPMU(object):
         self.count = 0
 
         self.dimec = Dime(self.name, self.dime_address)
-        self.pmu = Pmu(ip=pmu_ip, port=pmu_port)
         self.logger = get_logger(self.name)
+        self.pmu = Pmu(ip=pmu_ip, port=pmu_port, logger=self.logger)
 
     def start_dime(self):
         """Starts the dime client stored in `self.dimec`
