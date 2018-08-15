@@ -41,12 +41,29 @@ class MiniPMU(object):
         self.pmu_idx = pmu_idx
         self.max_store = max_store
 
+        self.reset = True
+        self.pmu_configured = False
+        self.pmu_streaming = False
+
+        self.reset_var()
+
+        self.dimec = Dime(self.name, self.dime_address)
+        self.logger = get_logger(self.name)
+        self.pmu = Pmu(ip=pmu_ip, port=pmu_port, logger=self.logger)
+
+    def reset_var(self):
+        """
+        Reset flags and memory
+        :return: None
+        """
+        if not self.reset:
+            return
+
         self.bus_name = []
         self.var_idx = {'am': [],
                         'vm': [],
                         'w': [],
                         }
-
         self.Varheader = list()
         self.Idxvgs = dict()
         self.SysParam = dict()
@@ -55,10 +72,6 @@ class MiniPMU(object):
         self.t = ndarray([])
         self.data = ndarray([])
         self.count = 0
-
-        self.dimec = Dime(self.name, self.dime_address)
-        self.logger = get_logger(self.name)
-        self.pmu = Pmu(ip=pmu_ip, port=pmu_port, logger=self.logger)
 
     def start_dime(self):
         """Starts the dime client stored in `self.dimec`
@@ -75,10 +88,14 @@ class MiniPMU(object):
 
     def respond_to_sim(self):
         """Respond with data streaming configuration to the simulator"""
-        response = {'vgsvaridx': self.vgsvaridx,
-                    'limitsample': 0,
-                    }
-        self.dimec.send_var('sim', self.name, response)
+
+        # ====== in the new set up, PMU does not need to respond ======
+        # response = {'vgsvaridx': self.vgsvaridx,
+        #             'limitsample': 0,
+        #             }
+        # self.dimec.send_var('sim', self.name, response)
+
+        pass
 
     def get_bus_name(self):
         """Return bus names based on ``self.pmu_idx`` and store bus names to ``self.bus_name``
@@ -135,10 +152,12 @@ class MiniPMU(object):
 
         """
         for item in self.pmu_idx:
-            self.var_idx['am'].append(self.Idxvgs['Pmu']['am'][0, item - 1])
-            self.var_idx['vm'].append(self.Idxvgs['Pmu']['vm'][0, item - 1])
-            self.var_idx['w'].append(self.Idxvgs['Bus']['w_Busfreq'][0, item - 1])
-
+            # self.var_idx['am'].append(self.Idxvgs['Pmu']['am'][0, item - 1])
+            # self.var_idx['vm'].append(self.Idxvgs['Pmu']['vm'][0, item - 1])
+            # self.var_idx['w'].append(self.Idxvgs['Bus']['w_Busfreq'][0, item - 1])
+            self.var_idx['am'].append([3*i-3 for i in self.pmu_idx])
+            self.var_idx['vm'].append([3*i-2 for i in self.pmu_idx])
+            self.var_idx['w'].append([3*i-1 for i in self.pmu_idx])
     @property
     def vgsvaridx(self):
         return array(self.var_idx['am'] + self.var_idx['vm'] + self.var_idx['w'])
@@ -154,6 +173,14 @@ class MiniPMU(object):
         else:
             return False
 
+    def sync_and_handle(self):
+        """
+        Sync and call data processing functins
+
+        :return:
+        """
+        pass
+
     def sync_measurement_data(self):
         """Store synced data into self.data and return in a tuple of (t, values)
         """
@@ -162,11 +189,14 @@ class MiniPMU(object):
         var = self.dimec.sync()
         ws = self.dimec.workspace
 
-        if var == 'Varvgs':
-            self.data[self.count, :] = ws[var]['vars'][:]
+        if var == 'pmu_data':
+            self.data[self.count, :] = ws[var]['vars'][0, self.vgsvaridx].reshape(-1)
             self.t[self.count, :] = ws[var]['t']
             self.count += 1
             return ws[var]['t'], ws[var]['vars']
+
+        elif var == 'DONE' and ws[var] == 1:
+            return -1, None
         else:
             return None, None
 
@@ -195,19 +225,35 @@ class MiniPMU(object):
         """Process control function
         """
         self.start_dime()
-        if self.sync_initialization():
-            self.find_var_idx()
-            self.respond_to_sim()
-        self.get_bus_name()
-        self.config_pmu()
-
         while True:
+            if self.reset is True:
+
+                # receive init and respond
+                if self.sync_initialization():
+                    self.find_var_idx()
+                    self.respond_to_sim()
+
+                self.get_bus_name()
+                if self.pmu_configured is False:
+                    self.config_pmu()
+                    self.pmu_configured = True
+
+                self.reset = False
+
             t, var = self.sync_measurement_data()
-            if not t:
+
+            if t is None:
                 time.sleep(0.005)
                 continue
-            if self.pmu.clients:
-                print(var)
+            elif t == -1:
+                # end of simulation
+                self.logger.info('DONE signal received')
+                self.reset = True
+                self.reset_var()
+            else:
+                self.logger.info('data received at t={}'.format(t))
+
+            if self.pmu.clients and not self.reset:
                 time.sleep(0.005)
                 self.pmu.send_data(phasors=[(int(var[0, 1]), int(var[0, 0]))],
                                    analog=[9.99],
