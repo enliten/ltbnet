@@ -7,7 +7,6 @@ import argparse
 
 from andes.utils.dime import Dime
 
-import numpy as np
 from numpy import array, ndarray, zeros
 
 from pypmu import Pmu
@@ -74,41 +73,43 @@ class MiniPMU(object):
         self.count = 0
 
     def start_dime(self):
-        """Starts the dime client stored in `self.dimec`
+        """
+        Starts the dime client stored in `self.dimec`
         """
         self.logger.info('Connecting to server at {}'.format(self.dime_address))
         assert self.dimec.start()
 
-        # clear data in the DiME server queue
-        # ===================================
-        # self.dimec.exit()
-        # assert self.dimec.start()
-
         self.logger.info('DiME client connected')
 
     def respond_to_sim(self):
-        """Respond with data streaming configuration to the simulator"""
+        """
+        DEPRECIATED: Respond with data streaming configuration to the simulator
 
-        # ====== in the new set up, PMU does not need to respond ======
-        # response = {'vgsvaridx': self.vgsvaridx,
-        #             'limitsample': 0,
-        #             }
-        # self.dimec.send_var('sim', self.name, response)
+        :return: None
+        """
 
         pass
 
     def get_bus_name(self):
-        """Return bus names based on ``self.pmu_idx`` and store bus names to ``self.bus_name``
         """
+        Return bus names based on ``self.pmu_idx`` and store bus names to ``self.bus_name``
+
+        :return: list of bus names
+        """
+
         # TODO: implement method to read bus names from Varheader
         self.bus_name = list(self.pmu_idx)
+
         for i in range(len(self.bus_name)):
             self.bus_name[i] = 'Bus_' + str(self.bus_name[i])
 
         return self.bus_name
 
     def config_pmu(self):
-        """Sets the ConfigFrame2 of the PMU
+        """
+        Sets the ConfigFrame2 of the PMU
+
+        :return: None
         """
 
         self.cfg = ConfigFrame2(self.pmu_idx[0],  # PMU_ID
@@ -133,14 +134,15 @@ class MiniPMU(object):
                            30)  # Rate of phasor data transmission)
 
         self.hf = HeaderFrame(self.pmu_idx[0],  # PMU_ID
-                              "Hello I'm a MiniPMU!")  # Header Message
+                              "MiniPMU <{name}> {pmu_idx}".format(name=self.name, pmu_idx = self.pmu_idx))  # Header Message
 
         self.pmu.set_configuration(self.cfg)
         self.pmu.set_header(self.hf)
         self.pmu.run()
 
     def find_var_idx(self):
-        """Returns a dictionary of the indices into Varheader based on
+        """
+        Returns a dictionary of the indices into Varheader based on
         `self.pmu_idx`. Items in `self.pmu_idx` uses 1-indexing.
 
         For example, if `self.pmu_idx` == [1, 2], this function will return
@@ -150,6 +152,7 @@ class MiniPMU(object):
          - Idxvgs.Bus.w_Busfreq[0] and Idxvgs.Bus.w_Busfreq[1] as w
         in the dictionary `self. var_idx` with the above fields.
 
+        :return: ``var_idx`` in ``pmu_data``
         """
         for item in self.pmu_idx:
             # self.var_idx['am'].append(self.Idxvgs['Pmu']['am'][0, item - 1])
@@ -158,13 +161,18 @@ class MiniPMU(object):
             self.var_idx['am'].append([3*i-3 for i in self.pmu_idx])
             self.var_idx['vm'].append([3*i-2 for i in self.pmu_idx])
             self.var_idx['w'].append([3*i-1 for i in self.pmu_idx])
+
     @property
     def vgsvaridx(self):
         return array(self.var_idx['am'] + self.var_idx['vm'] + self.var_idx['w'])
 
     def init_storage(self):
-        """Initialize data storage `self.t` and `self.data`
         """
+        Initialize data storage `self.t` and `self.data`
+
+        :return: if the storage has been reset
+        """
+
         if self.count % self.max_store == 0:
             self.t = zeros(shape=(self.max_store, 1), dtype=float)
             self.data = zeros(shape=(self.max_store, len(self.pmu_idx * 3)), dtype=float)
@@ -182,7 +190,10 @@ class MiniPMU(object):
         pass
 
     def sync_measurement_data(self):
-        """Store synced data into self.data and return in a tuple of (t, values)
+        """
+        Store synced data into self.data and return in a tuple of (t, values)
+
+        :return: (t, vars)
         """
         self.init_storage()
 
@@ -201,7 +212,10 @@ class MiniPMU(object):
             return None, None
 
     def sync_initialization(self):
-        """Sync for ``SysParam``, ``Idxvgs`` and ``Varheader`` until all are received
+        """
+        Sync for ``SysParam``, ``Idxvgs`` and ``Varheader`` until all are received
+
+        :return: None
         """
         self.logger.info('Waiting for SysParam, Idxvgs and Varheader from ANDES...')
         ret = False
@@ -222,7 +236,10 @@ class MiniPMU(object):
         return ret
 
     def run(self):
-        """Process control function
+        """
+        Process control function
+
+        :return None
         """
         self.start_dime()
         while True:
@@ -278,9 +295,6 @@ def main():
     for i in range(len(args['pmu_idx'])):
         args['pmu_idx'][i] = int(args['pmu_idx'][i])
 
-    # mini = MiniPMU(name='TestPMU', dime_address='ipc:///tmp/dime', pmu_idx=[1],
-    #                pmu_port=1414)
-    # mini.run()
     mini = MiniPMU(**args)
     mini.run()
 
