@@ -152,7 +152,7 @@ class MiniPMU(object):
          - Idxvgs.Bus.w_Busfreq[0] and Idxvgs.Bus.w_Busfreq[1] as w
         in the dictionary `self. var_idx` with the above fields.
 
-        :return: ``var_idx`` in ``pmu_data``
+        :return: ``var_idx`` in ``pmudata``
         """
         for item in self.pmu_idx:
             # self.var_idx['am'].append(self.Idxvgs['Pmu']['am'][0, item - 1])
@@ -200,7 +200,7 @@ class MiniPMU(object):
         var = self.dimec.sync()
         ws = self.dimec.workspace
 
-        if var == 'pmu_data':
+        if var == 'pmudata':
             self.data[self.count, :] = ws[var]['vars'][0, self.vgsvaridx].reshape(-1)
             self.t[self.count, :] = ws[var]['t']
             self.count += 1
