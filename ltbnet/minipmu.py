@@ -14,7 +14,9 @@ from pypmu.frame import ConfigFrame2, HeaderFrame
 
 
 def get_logger(name):
+    # TODO: set logging level
     logger = logging.getLogger(name)
+    logger.setLevel(logging.DEBUG)
     if not logger.handlers:
         # Prevent logging from propagating to the root logger
         logger.propagate = 0
@@ -123,10 +125,11 @@ class MiniPMU(object):
             self.bus_name[i] = 'Bus_' + str(self.bus_name[i])
 
         # assign names from SysName if present
-        if self.SysName is not None:
+        if len(self.SysName) > 0:
             for i in range(len(self.bus_name)):
                 self.bus_name[i] = self.SysName['Bus'][i]
 
+        self.logger.debug('PMU names changed to: {}'.format(self.bus_name))
         return self.bus_name
 
     def config_pmu(self):
@@ -179,13 +182,13 @@ class MiniPMU(object):
         :return: ``var_idx`` in ``pmudata``
         """
 
-        self.var_idx['vm'] = [3*i-3 for i in self.pmu_idx]
-        self.var_idx['am'] = [3*i-2 for i in self.pmu_idx]
-        self.var_idx['w'] = [3*i-1 for i in self.pmu_idx]
+        self.var_idx['vm'] = [3 * int(i) -3 for i in self.pmu_idx]
+        self.var_idx['am'] = [3 * int(i) -2 for i in self.pmu_idx]
+        self.var_idx['w'] = [3 * int(i) -1 for i in self.pmu_idx]
 
     @property
     def vgsvaridx(self):
-        return array(self.var_idx['am'] + self.var_idx['vm'] + self.var_idx['w'])
+        return array(self.var_idx['am'] + self.var_idx['vm'] + self.var_idx['w'], dtype=int)
 
     def init_storage(self):
         """
@@ -212,24 +215,39 @@ class MiniPMU(object):
 
         var = self.dimec.sync()
 
-        if var is False:
+        if var is False or None:
             return ret
 
-        self.logger.info('{} synced.'.format(var))
+        self.logger.debug('variable <{}> synced.'.format(var))
         data = self.dimec.workspace[var]
 
-        if var in ('SysParam', 'Idxvgs', 'Varheader', 'SysName'):
-            self.__dict__[var] = data
+        if var in ('SysParam', 'Idxvgs', 'Varheader'):
+            # only handle these three variables during reset cycle
+
+            if self.reset is True:
+                self.__dict__[var] = data
+            else:
+                self.logger.warning('{} not handled outside reset cycle'.format(var))
 
         elif var == 'pmudata':
-            self.logger.info('data received at t={}'.format(data['t']))
-            self.handle_measurement_data(data)
+            # only handle pmudata during normal cycle
+            if self.reset is False:
+                self.logger.info('data received at t={}'.format(data['t']))
+                self.handle_measurement_data(data)
+            else:
+                self.logger.warning('{} not handled during reset cycle'.format(var))
+
+        # handle SysName any time
+        elif var == 'SysName':
+            self.__dict__[var] = data
+            self.get_bus_name()
 
         elif var == 'DONE' and data == 1:
             self.reset = True
             self.reset_var()
+
         else:
-            self.logger.warning('{} not handled.'.format(var))
+            self.logger.warning('{} not handled during normal ops'.format(var))
 
         return var
 
@@ -243,6 +261,7 @@ class MiniPMU(object):
 
         self.data[self.count, :] = data['vars'][0, self.vgsvaridx].reshape(-1)
         self.t[self.count, :] = data['t']
+
         self.count += 1
 
         self.last_data = data['vars']
@@ -262,13 +281,19 @@ class MiniPMU(object):
 
             if self.reset is True:
                 # receive init and respond
+                self.logger.debug('Entering reset mode...')
+
                 while True:
                     var = self.sync_and_handle()
-                    if var == 'Idxvgs':
+
+                    if var is False:
+                        time.sleep(0.01)
+
+                    if len(self.Varheader) > 0 and len(self.Idxvgs) > 0 and len(self.SysParam) > 0:
+                        self.find_var_idx()
                         break
 
                 self.respond_to_sim()
-                self.find_var_idx()
                 self.get_bus_name()
 
                 if self.pmu_configured is False:
@@ -277,21 +302,41 @@ class MiniPMU(object):
 
                 self.reset = False
 
-            var = self.sync_and_handle()
+            # =========================================================================================================
+            # TODO - DEBUG:
+            #   DiME client may have an unpredictive bug which hangs during ``sync()`` when running inside Mininet
+            #       The debug messages affects when the ``dimec.sync()`` hangs
+            #       If the following two lines are enabled, dime hangs around t=0.13906250000000012
+            #
+            #           self.logger.debug('Entering sync...')
+            #           self.logger.debug('Entering sync...')
+            #
+            #       If not enabled, dime hangs around t=6.743952517459697
+            #
+            # ==========================================================================================================
+            self.logger.debug('Entering sync...')
 
-            if var is None:
-                time.sleep(0.005)
+            var = self.sync_and_handle()
+            time.sleep(0.005)
+
+            self.logger.debug('Entering sleep...')
+
+            if var is False:
                 continue
 
             elif var == 'pmudata':
                 if self.pmu.clients and not self.reset:
 
-                    self.pmu.send_data(phasors=[(int(self.last_data[0, 1]),
-                                                 int(self.last_data[0, 0]))],
-                                       analog=[9.99],
-                                       digital=[0x0001],
-                                       freq=self.last_data[0, 2]
-                                       )
+                    try:
+                        self.pmu.send_data(phasors=[(int(self.last_data[0, 1]),
+                                                     int(self.last_data[0, 0]))],
+                                           analog=[9.99],
+                                           digital=[0x0001],
+                                           freq=self.last_data[0, 2]
+                                           )
+
+                    except Exception as e:
+                        self.logger.exception(e)
 
 
 def main():

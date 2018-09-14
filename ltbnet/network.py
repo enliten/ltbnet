@@ -170,6 +170,8 @@ class Record(object):
 
         mac = None if MAC == 'None' else MAC
         idx = self._name + '_' + str(self.n) if not Idx else Idx
+        pmu_idx = None if PMU_IDX == 'None' else int(PMU_IDX)
+
         if idx in self.idx:
             log.error('PMU Idx <{i}> conflict.'.format(i=idx))
         conn = None if Connections == 'None' else Connections.split()
@@ -182,7 +184,7 @@ class Record(object):
         self.mac.append(mac)
         self.idx.append(idx)
         self.connections.append(conn)
-        self.pmu_idx.append(int(PMU_IDX))
+        self.pmu_idx.append(pmu_idx)
 
         self.n += 1
 
