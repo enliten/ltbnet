@@ -16,7 +16,7 @@ from pypmu.frame import ConfigFrame2, HeaderFrame
 def get_logger(name):
     # TODO: set logging level
     logger = logging.getLogger(name)
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.WARNING)
     if not logger.handlers:
         # Prevent logging from propagating to the root logger
         logger.propagate = 0
@@ -127,7 +127,7 @@ class MiniPMU(object):
         # assign names from SysName if present
         if len(self.SysName) > 0:
             for i in range(len(self.bus_name)):
-                self.bus_name[i] = self.SysName['Bus'][i]
+                self.bus_name[i] = self.SysName['Bus'][self.pmu_idx[i] - 1]
 
         self.logger.debug('PMU names changed to: {}'.format(self.bus_name))
         return self.bus_name
@@ -188,7 +188,7 @@ class MiniPMU(object):
 
     @property
     def vgsvaridx(self):
-        return array(self.var_idx['am'] + self.var_idx['vm'] + self.var_idx['w'], dtype=int)
+        return array(self.var_idx['vm'] + self.var_idx['am'] + self.var_idx['w'], dtype=int)
 
     def init_storage(self):
         """
@@ -227,7 +227,7 @@ class MiniPMU(object):
             if self.reset is True:
                 self.__dict__[var] = data
             else:
-                self.logger.warning('{} not handled outside reset cycle'.format(var))
+                self.logger.info('{} not handled outside reset cycle'.format(var))
 
         elif var == 'pmudata':
             # only handle pmudata during normal cycle
@@ -235,7 +235,7 @@ class MiniPMU(object):
                 self.logger.info('data received at t={}'.format(data['t']))
                 self.handle_measurement_data(data)
             else:
-                self.logger.warning('{} not handled during reset cycle'.format(var))
+                self.logger.info('{} not handled during reset cycle'.format(var))
 
         # handle SysName any time
         elif var == 'SysName':
@@ -247,7 +247,7 @@ class MiniPMU(object):
             self.reset_var()
 
         else:
-            self.logger.warning('{} not handled during normal ops'.format(var))
+            self.logger.info('{} not handled during normal ops'.format(var))
 
         return var
 
@@ -291,10 +291,11 @@ class MiniPMU(object):
 
                     if len(self.Varheader) > 0 and len(self.Idxvgs) > 0 and len(self.SysParam) > 0:
                         self.find_var_idx()
+                        # attemp to sync SysName
+                        var = self.sync_and_handle()
                         break
 
                 self.respond_to_sim()
-                self.get_bus_name()
 
                 if self.pmu_configured is False:
                     self.config_pmu()
@@ -302,18 +303,6 @@ class MiniPMU(object):
 
                 self.reset = False
 
-            # =========================================================================================================
-            # TODO - DEBUG:
-            #   DiME client may have an unpredictive bug which hangs during ``sync()`` when running inside Mininet
-            #       The debug messages affects when the ``dimec.sync()`` hangs
-            #       If the following two lines are enabled, dime hangs around t=0.13906250000000012
-            #
-            #           self.logger.debug('Entering sync...')
-            #           self.logger.debug('Entering sync...')
-            #
-            #       If not enabled, dime hangs around t=6.743952517459697
-            #
-            # ==========================================================================================================
             self.logger.debug('Entering sync...')
 
             var = self.sync_and_handle()
