@@ -143,6 +143,7 @@ class Record(object):
         self.name = []
         self.coords = []
         self.mac = []
+        self.pmu_idx = []
         self.ip = []
         self.region = []
         self.prefix = ''
@@ -156,8 +157,10 @@ class Record(object):
         """Custom build function"""
         pass
 
-    def add(self, Type=None, Longitude=None, Latitude=None, MAC=None, Idx=None, Name='', Region='', Connections = '',
-            IP='', **kwargs):
+    def add(self, Type=None, Longitude=None, Latitude=None, MAC=None,
+            Idx=None, Name='', Region='', Connections='', IP='',
+            PMU_IDX='', **kwargs):
+
         if not self._name:
             log.error('Device name not initialized')
             return
@@ -179,6 +182,8 @@ class Record(object):
         self.mac.append(mac)
         self.idx.append(idx)
         self.connections.append(conn)
+        self.pmu_idx.append(int(PMU_IDX))
+
         self.n += 1
 
     def lookup_index(self, idx, canonical=False):
@@ -190,7 +195,6 @@ class Record(object):
         if idx not in records:
             return -1
         return records.index(idx)
-
 
     def dump(self):
         """Return a string of the dumped records in csv format"""
@@ -210,6 +214,7 @@ class Record(object):
                     conn if conn else 'None',
                     self.mac[i] if self.mac[i] else 'None',
                     self.ip[i] if self.ip[i] else 'None',
+                    self.pmu_idx[i] if self.pmu_idx[i] else 'None',
                     ]
             ret.append(','.join(line))
 
@@ -279,10 +284,12 @@ class PMU(Record):
             name = self.mn_name[i]
             node = network.get(name)
             pmu_name = self.name[i]
+            pmu_idx = self.pmu_idx[i]
+
             if pmu_name[:4] != 'PMU_':
                 pmu_name = 'PMU_' + name
             node.popen(run_minipmu.format(port=1410,
-                                          pmu_idx=1,
+                                          pmu_idx=pmu_idx,
                                           name=pmu_name,
                                           ),
                          )  # TODO: Get bus idx by PMU name
