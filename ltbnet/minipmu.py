@@ -33,6 +33,21 @@ class MiniPMU(object):
     def __init__(self, name: str='', dime_address: str='ipc:///tmp/dime',
                  pmu_idx: list=list(), max_store: int=1000, pmu_ip: str='0.0.0.0', pmu_port: int=1410,
                  **kwargs):
+        """
+        Create a MiniPMU instance for PMU data streaming over Mininet.
+
+        Assumptions made for
+
+        Parameters
+        ----------
+        name
+        dime_address
+        pmu_idx
+        max_store
+        pmu_ip
+        pmu_port
+        kwargs
+        """
         assert name, 'PMU Receiver name is empty'
         assert pmu_idx, 'PMU idx is empty'
         self.name = name
@@ -66,11 +81,15 @@ class MiniPMU(object):
         self.Varheader = list()
         self.Idxvgs = dict()
         self.SysParam = dict()
+        self.SysName = dict()
         self.Varvgs = ndarray([])
 
         self.t = ndarray([])
         self.data = ndarray([])
         self.count = 0
+
+        self.last_data = None
+        self.last_t = None
 
     def start_dime(self):
         """
@@ -97,11 +116,16 @@ class MiniPMU(object):
         :return: list of bus names
         """
 
-        # TODO: implement method to read bus names from Varheader
+        # assign generic bus names
         self.bus_name = list(self.pmu_idx)
 
         for i in range(len(self.bus_name)):
             self.bus_name[i] = 'Bus_' + str(self.bus_name[i])
+
+        # assign names from SysName if present
+        if self.SysName is not None:
+            for i in range(len(self.bus_name)):
+                self.bus_name[i] = self.SysName['Bus'][i]
 
         return self.bus_name
 
@@ -154,13 +178,10 @@ class MiniPMU(object):
 
         :return: ``var_idx`` in ``pmudata``
         """
-        for item in self.pmu_idx:
-            # self.var_idx['am'].append(self.Idxvgs['Pmu']['am'][0, item - 1])
-            # self.var_idx['vm'].append(self.Idxvgs['Pmu']['vm'][0, item - 1])
-            # self.var_idx['w'].append(self.Idxvgs['Bus']['w_Busfreq'][0, item - 1])
-            self.var_idx['am'].append([3*i-3 for i in self.pmu_idx])
-            self.var_idx['vm'].append([3*i-2 for i in self.pmu_idx])
-            self.var_idx['w'].append([3*i-1 for i in self.pmu_idx])
+
+        self.var_idx['vm'] = [3*i-3 for i in self.pmu_idx]
+        self.var_idx['am'] = [3*i-2 for i in self.pmu_idx]
+        self.var_idx['w'] = [3*i-1 for i in self.pmu_idx]
 
     @property
     def vgsvaridx(self):
@@ -187,9 +208,32 @@ class MiniPMU(object):
 
         :return:
         """
-        pass
+        ret = False
 
-    def sync_measurement_data(self):
+        var = self.dimec.sync()
+
+        if var is False:
+            return ret
+
+        self.logger.info('{} synced.'.format(var))
+        data = self.dimec.workspace[var]
+
+        if var in ('SysParam', 'Idxvgs', 'Varheader', 'SysName'):
+            self.__dict__[var] = data
+
+        elif var == 'pmudata':
+            self.logger.info('data received at t={}'.format(data['t']))
+            self.handle_measurement_data(data)
+
+        elif var == 'DONE' and data == 1:
+            self.reset = True
+            self.reset_var()
+        else:
+            self.logger.warning('{} not handled.'.format(var))
+
+        return var
+
+    def handle_measurement_data(self, data):
         """
         Store synced data into self.data and return in a tuple of (t, values)
 
@@ -197,43 +241,14 @@ class MiniPMU(object):
         """
         self.init_storage()
 
-        var = self.dimec.sync()
-        ws = self.dimec.workspace
+        self.data[self.count, :] = data['vars'][0, self.vgsvaridx].reshape(-1)
+        self.t[self.count, :] = data['t']
+        self.count += 1
 
-        if var == 'pmudata':
-            self.data[self.count, :] = ws[var]['vars'][0, self.vgsvaridx].reshape(-1)
-            self.t[self.count, :] = ws[var]['t']
-            self.count += 1
-            return ws[var]['t'], ws[var]['vars']
+        self.last_data = data['vars']
+        self.last_t = data['t']
 
-        elif var == 'DONE' and ws[var] == 1:
-            return -1, None
-        else:
-            return None, None
-
-    def sync_initialization(self):
-        """
-        Sync for ``SysParam``, ``Idxvgs`` and ``Varheader`` until all are received
-
-        :return: None
-        """
-        self.logger.info('Waiting for SysParam, Idxvgs and Varheader from ANDES...')
-        ret = False
-        count = 0
-        while True:
-            var = self.dimec.sync()
-            if var is False:
-                time.sleep(0.05)
-                continue
-            if var in ('SysParam', 'Idxvgs', 'Varheader'):
-                self.__dict__[var] = self.dimec.workspace[var]
-                count += 1
-                self.logger.info('{} synced.'.format(var))
-            if count == 3:
-                ret = True
-                break
-
-        return ret
+        return data['t'], data['vars']
 
     def run(self):
         """
@@ -242,40 +257,41 @@ class MiniPMU(object):
         :return None
         """
         self.start_dime()
+
         while True:
+
             if self.reset is True:
-
                 # receive init and respond
-                if self.sync_initialization():
-                    self.find_var_idx()
-                    self.respond_to_sim()
+                while True:
+                    var = self.sync_and_handle()
+                    if var == 'Idxvgs':
+                        break
 
+                self.respond_to_sim()
+                self.find_var_idx()
                 self.get_bus_name()
+
                 if self.pmu_configured is False:
                     self.config_pmu()
                     self.pmu_configured = True
 
                 self.reset = False
 
-            t, var = self.sync_measurement_data()
+            var = self.sync_and_handle()
 
-            if t is None:
+            if var is None:
                 time.sleep(0.005)
                 continue
-            elif t == -1:
-                # end of simulation
-                self.logger.info('DONE signal received')
-                self.reset = True
-                self.reset_var()
-            else:
-                self.logger.info('data received at t={}'.format(t))
 
-            if self.pmu.clients and not self.reset:
-                time.sleep(0.005)
-                self.pmu.send_data(phasors=[(int(var[0, 1]), int(var[0, 0]))],
-                                   analog=[9.99],
-                                   digital=[0x0001],
-                                   freq=var[0, 2])
+            elif var == 'pmudata':
+                if self.pmu.clients and not self.reset:
+
+                    self.pmu.send_data(phasors=[(int(self.last_data[0, 1]),
+                                                 int(self.last_data[0, 0]))],
+                                       analog=[9.99],
+                                       digital=[0x0001],
+                                       freq=self.last_data[0, 2]
+                                       )
 
 
 def main():
