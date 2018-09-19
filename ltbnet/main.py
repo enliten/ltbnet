@@ -40,7 +40,10 @@ def main(*args, **kwargs):
     print('LTBNet Ready')
     network.PMU.run_pmu(net)
     CLI(net)
-    # net.stop()
+
+    net.stop()
+    print('Stopping MiniPMUs - enter your root password if prompted')
+    os.system("sudo pkill minipmu")
 
 
 def clean(*args, **kwargs):
