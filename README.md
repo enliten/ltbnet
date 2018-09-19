@@ -67,21 +67,21 @@ values for `Type` and their meaning are the follows:
 A complete table of the supported fields for each type of component is listed 
 below.
 
-|           | Region            | Switch                       | Router | PMU                  | PDC | HwIntf            |
-|-----------|-------------------|------------------------------|--------|----------------------|-----|-------------------|
-| Idx       | unique identifier | <                            | <      | <                    | <   | <                 |
-| Region    | region name       | <                            | <      | <                    | <   | <                 |
-| Name      | instance name     | <                            | <      | <                    | <   | ifconfig NIC name |
-| Longitude | longitude value   | <                            | <      | <                    | <   | <                 |
-| Latitude  | Latitude value    | <                            | <      | <                    | <   | <                 |
-| Links     | -                 | space-sep Idx of upstream    | <      | <                    | <   | <                 |
-| MAC       | -                 | MAC address                  | <      | <                    | <   | -                 |
-| IP        | -                 | IP address                   | <      | <                    | <   | -                 |
-| PMU_IDX   | -                 | -                            | -      | idx of the ANDES PMU | -   | -                 |
-| Delay     | -                 | delay on the links           | <      | <                    | <   | <                 |
-| BW        | -                 | bandwidth in Mbps            | <      | <                    | <   | <                 |
-| Loss      | -                 | data loss rate in percentage | <      | <                    | <   | <                 |
-| Jitter    | -                 | jitter rate in percentage    | <      | <                    | <   | <                 |
+|           | Region            | Switch                    | Router | PMU                  | PDC | HwIntf            |
+|-----------|-------------------|---------------------------|--------|----------------------|-----|-------------------|
+| Idx       | unique identifier | <                         | <      | <                    | <   | <                 |
+| Region    | region name       | <                         | <      | <                    | <   | <                 |
+| Name      | instance name     | <                         | <      | <                    | <   | ifconfig NIC name |
+| Longitude | longitude value   | <                         | <      | <                    | <   | <                 |
+| Latitude  | Latitude value    | <                         | <      | <                    | <   | <                 |
+| Links     | -                 | space-sep Idx of upstream | <      | <                    | <   | <                 |
+| MAC       | -                 | MAC address               | <      | <                    | <   | -                 |
+| IP        | -                 | IP address                | <      | <                    | <   | -                 |
+| PMU_IDX   | -                 | -                         | -      | idx of the ANDES PMU | -   | -                 |
+| Delay     | -                 | delay on the links        | <      | <                    | <   | <                 |
+| BW        | -                 | bandwidth in Mbps         | <      | <                    | <   | <                 |
+| Loss      | -                 | data loss rate in %       | <      | <                    | <   | <                 |
+| Jitter    | -                 | jitter rate in %          | <      | <                    | <   | <                 |
 
 Note:
  - `<` means the same as the left
@@ -107,36 +107,63 @@ sudo ltbnet config_9pmu.json -v
 This enables the verbose mode of LTBNet.
 
 > $ sudo ltbnet config_9pmu.csv -v
+>
 > *** Creating network
+>
 > *** Adding controller
+>
 > *** Adding hosts:
+>
 > C_AESO C_BCTC DEVERS1 DEVERS2 DEVERS3 DEVERS4 DEVERS5 DEVERS6 DEVERS7 DEVERS8 DEVERS9 
+>
 > *** Adding switches:
+>
 > s0 s1 
+>
 > *** Adding links:
+>
 > (C_AESO, s0) (C_BCTC, s1) (DEVERS1, s0) (DEVERS2, s0) (DEVERS3, s0) (DEVERS4, s0) (DEVERS5, s0) (DEVERS6, s0) (DEVERS7, s0) (DEVERS8, s0) (DEVERS9, s0) (10.00Mbit) (10.00Mbit) (s1, s0) 
+>
 > *** Configuring hosts
+>
 > C_AESO C_BCTC DEVERS1 DEVERS2 DEVERS3 DEVERS4 DEVERS5 DEVERS6 DEVERS7 DEVERS8 DEVERS9 
+>
 > *** Adding hardware interface enp4s0f0 to switch S_BCTC 
+>
 > *** Starting controller
+>
 > c0 
+>
 > *** Starting 2 switches
+>
 > s0 s1 ...(10.00Mbit) (10.00Mbit) 
+>
 > LTBNet Ready
+>
 > ['DEVERS1', 'DEVERS2', 'DEVERS3', 'DEVERS4', 'DEVERS5', 'DEVERS6', 'DEVERS7', 'DEVERS8', 'DEVERS9']
+>
 > *** Starting CLI:
 
 To exit, run `exit()` in the Mininet command line window:
 
 > mininet> exit()
+>
 > *** Stopping 1 controllers
+>
 > c0 
+>
 > *** Stopping 12 links
+>
 > ............
+>
 > *** Stopping 2 switches
+>
 > s0 s1 
+>
 > *** Stopping 11 hosts
+>
 > C_AESO C_BCTC DEVERS1 DEVERS2 DEVERS3 DEVERS4 DEVERS5 DEVERS6 DEVERS7 DEVERS8 DEVERS9 
+>
 > *** Done
 
 To run a MiniPMU in standalone mode, please refer to `minipmu -h`.
@@ -145,17 +172,20 @@ To run a MiniPMU in standalone mode, please refer to `minipmu -h`.
 
 The LTBNet package is structured as follows:
 
-+ -- data
-|   + -- `config_9pmu.csv`
-|   + -- `config_9pmu.json`
-|   + -- `config_wecc.csv`
-|   + -- `config_wecc.json`
-+ -- ltbnet
-|   + -- `main.py` (main orchestrator script)
-|   + -- `minipmu.py` (minipmu program for creating PMU instances)
-|   + -- `network.py` (LTBNet topology manager)
-|   + -- `parser.py` (data parser)
-|   + -- `utils.py` (utility functions)
+ * [bin](./bin)
+   * [python3-sudo.sh](./bin/python3-sudo.sh) sudo python for debugging
+ * [data](./data)
+   * [config_9pmu.csv](./data/config_9pmu.csv)
+   * [config_9pmu.json](./data/config_9pmu.json)
+   * [config_wecc.csv](./data/config_wecc.csv)
+   * [config_wecc.json](./data/config_wecc.json)
+ * [ltbnet](./ltbnet)
+   * [__init__.py](./ltbnet/__init__.py)
+   * [main.py](./ltbnet/main.py) main orchestrator script
+   * [minipmu.py](./ltbnet/minipmu.py) minipmu program for creating PMU instances
+   * [network.py](./ltbnet/network.py) LTBNet topology manager
+   * [parser.py](./ltbnet/parser.py) data parser
+   * [utils.py](./ltbnet/utils.py) utility functions
 
 ## License, Authors, Contributors and Acknowledgement
 LTBNet is released under GNU General Public License 3. See LICENSE.
