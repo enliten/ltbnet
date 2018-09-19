@@ -5,6 +5,7 @@ import os
 import argparse
 from ltbnet.network import Network
 from ltbnet.parser import parse_config_csv
+from mininet.link import TCLink
 
 from mininet.net import Mininet
 from mininet.cli import CLI
@@ -30,7 +31,7 @@ def main(*args, **kwargs):
     config = parse_config_csv(cli_args.config)
     network = Network().setup(config)
 
-    net = Mininet(topo=network)
+    net = Mininet(topo=network, link=TCLink)
 
     if network.HwIntf.n:
         network.add_hw_intf(net)

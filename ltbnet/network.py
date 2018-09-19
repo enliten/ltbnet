@@ -144,6 +144,10 @@ class Record(object):
         self.coords = []
         self.mac = []
         self.pmu_idx = []
+        self.delay = []
+        self.bw = []
+        self.jitter = []
+        self.loss = []
         self.ip = []
         self.region = []
         self.prefix = ''
@@ -158,8 +162,8 @@ class Record(object):
         pass
 
     def add(self, Type=None, Longitude=None, Latitude=None, MAC=None,
-            Idx=None, Name='', Region='', Connections='', IP='',
-            PMU_IDX='', **kwargs):
+            Idx=None, Name='', Region='', Links='', IP='',
+            PMU_IDX='', Delay='', BW='', Loss='', Jitter='', **kwargs):
 
         if not self._name:
             log.error('Device name not initialized')
@@ -174,7 +178,27 @@ class Record(object):
 
         if idx in self.idx:
             log.error('PMU Idx <{i}> conflict.'.format(i=idx))
-        conn = None if Connections == 'None' else Connections.split()
+
+        conn = None if Links == 'None' else Links.split()
+        delay = None if Delay == 'None' else Delay.split()
+        bw = None if BW == 'None' else BW.split()
+        loss = None if Loss == 'None' else Loss.split()
+        jitter = None if Jitter == 'None' else Jitter.split()
+
+        if conn is not None:
+            if delay is None:
+                delay = [None] * len(conn)
+            if bw is None:
+                bw = [None] * len(conn)
+            if loss is None:
+                loss = [None] * len(conn)
+            if jitter is None:
+                jitter = [None] * len(conn)
+
+            assert len(conn) == len(delay), "{}: len(Links)={} does not match len(delay)={}".format(idx, len(conn), len(delay))
+            assert len(conn) == len(bw), "{}: len(Links)={} does not match len(bw)={}".format(idx, len(conn), len(bw))
+            assert len(conn) == len(loss), "{}: len(Links)={} does not match len(loss)={}".format(idx, len(conn), len(loss))
+            assert len(conn) == len(jitter), "{}: len(Links)={} does not match len(jitter)={}".format(idx, len(conn), len(jitter))
 
         self.name.append(Name)
         self.region.append(Region)
@@ -185,6 +209,10 @@ class Record(object):
         self.idx.append(idx)
         self.connections.append(conn)
         self.pmu_idx.append(pmu_idx)
+        self.delay.append(delay)
+        self.bw.append(bw)
+        self.loss.append(loss)
+        self.jitter.append(jitter)
 
         self.n += 1
 
@@ -249,18 +277,25 @@ class Record(object):
     def add_link_to_mn(self, network):
         """Method to add links from each element to the connections"""
 
-        for i, name, connect in zip(range(self.n), self.mn_name, self.connections):
+        for i, name, connect, delay, bw, loss, jitter in \
+                zip(range(self.n), self.mn_name, self.connections, self.delay, self.bw, self.loss, self.jitter):
+
             if not connect:
                 continue
 
-            for c in connect:
+            for i, c in enumerate(connect):
                 # if c is a switch, look up its canonical name
                 c = network.to_canonical(c)
 
-                # TODO: Check if `c` is a network component
+                # check for optional link configs
+                d = delay[i]
+                b = float(bw[i]) if bw[i] is not None else None
+                l = float(loss[i]) if loss[i] is not None else None
+                j = float(jitter[i]) if jitter[i] is not None else None
 
                 if not network.Link.exist_undirectioned(name, c):
-                    r = network.addLink(name, c)
+                    r = network.addLink(name, c, delay=d, bw=b, loss=l, jitter=j)
+                    # register the link element to the LTBNet object
                     network.Link.add(name, c, r)
                     # log.debug('Adding link <{fr}> to <{to}>.'.format(fr=name, to=c))
                 else:
