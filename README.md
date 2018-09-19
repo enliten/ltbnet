@@ -180,7 +180,6 @@ The LTBNet package is structured as follows:
    * [config_wecc.csv](./data/config_wecc.csv)
    * [config_wecc.json](./data/config_wecc.json)
  * [ltbnet](./ltbnet)
-   * [__init__.py](./ltbnet/__init__.py)
    * [main.py](./ltbnet/main.py) main orchestrator script
    * [minipmu.py](./ltbnet/minipmu.py) minipmu program for creating PMU instances
    * [network.py](./ltbnet/network.py) LTBNet topology manager
@@ -191,6 +190,7 @@ The LTBNet package is structured as follows:
 LTBNet is released under GNU General Public License 3. See LICENSE.
 
 Author: Hantao Cui (hcui7@utk.edu)
+
 Contributors: Kellen Oleksak
 
 This work was supported in part by the Engineering Research Center Program of 
