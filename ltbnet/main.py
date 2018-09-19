@@ -4,7 +4,7 @@ import os
 
 import argparse
 from ltbnet.network import Network
-from ltbnet.parser import parse_config_csv
+from ltbnet.parser import parse_config
 from mininet.link import TCLink
 
 from mininet.net import Mininet
@@ -28,7 +28,7 @@ def main(*args, **kwargs):
         clean()
         return
 
-    config = parse_config_csv(cli_args.config)
+    config = parse_config(cli_args.config)
     network = Network().setup(config)
 
     net = Mininet(topo=network, link=TCLink)

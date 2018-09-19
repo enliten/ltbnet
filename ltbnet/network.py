@@ -180,10 +180,22 @@ class Record(object):
             log.error('PMU Idx <{i}> conflict.'.format(i=idx))
 
         conn = None if Links == 'None' else Links.split()
-        delay = None if Delay == 'None' else Delay.split()
-        bw = None if BW == 'None' else BW.split()
-        loss = None if Loss == 'None' else Loss.split()
-        jitter = None if Jitter == 'None' else Jitter.split()
+
+        def to_list(var):
+            """Helper function to convert field to a list or a None object """
+            out = None
+            if var == 'None':
+                out = None
+            elif isinstance(var, (int, float)):
+                out = [var]
+            elif isinstance(var, str):
+                out = var.split()
+            return out
+
+        delay = to_list(Delay)
+        bw = to_list(BW)
+        loss = to_list(Loss)
+        jitter = to_list(Jitter)
 
         if conn is not None:
             if delay is None:
