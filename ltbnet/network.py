@@ -179,8 +179,6 @@ class Record(object):
         if idx in self.idx:
             log.error('PMU Idx <{i}> conflict.'.format(i=idx))
 
-        conn = None if Links == 'None' else Links.split()
-
         def to_list(var):
             """Helper function to convert field to a list or a None object """
             out = None
@@ -192,6 +190,7 @@ class Record(object):
                 out = var.split()
             return out
 
+        conn = to_list(Links)
         delay = to_list(Delay)
         bw = to_list(BW)
         loss = to_list(Loss)
