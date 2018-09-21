@@ -126,11 +126,12 @@ class Network(Topo):
 
     def add_hw_intf(self, net):
         """Add hardware interfaces from Network.HwIntf records"""
-        for i, name, connect in zip(range(self.HwIntf.n), self.HwIntf.name, self.HwIntf.connections):
-            for c in connect:
-                switch_index = self.Switch.lookup_index(c)
-                log.info('*** Adding hardware interface', name, 'to switch', c, '\n')
-                r = Intf(name, node=net.switches[switch_index])
+        for i, name, to in zip(range(self.HwIntf.n), self.HwIntf.name, self.HwIntf.to):
+            switch_index = self.Switch.lookup_index(to)
+            log.info('*** Adding hardware interface', name, 'to switch', to, '\n')
+
+            # TODO: add (delay, bw, jitter and loss)
+            r = Intf(name, node=net.switches[switch_index])
 
 
 class Record(object):
@@ -149,6 +150,8 @@ class Record(object):
         self.jitter = []
         self.loss = []
         self.ip = []
+        self.fr = []
+        self.to = []
         self.region = []
         self.prefix = ''
         self.connections = []
@@ -162,8 +165,8 @@ class Record(object):
         pass
 
     def add(self, Type=None, Longitude=None, Latitude=None, MAC=None,
-            Idx=None, Name='', Region='', Links='', IP='',
-            PMU_IDX='', Delay='', BW='', Loss='', Jitter='', **kwargs):
+            Idx=None, Name='', Region='', IP='',
+            PMU_IDX='', Delay='', BW='', Loss='', Jitter='', From='', To='', **kwargs):
 
         if not self._name:
             log.error('Device name not initialized')
@@ -179,51 +182,40 @@ class Record(object):
         if idx in self.idx:
             log.error('PMU Idx <{i}> conflict.'.format(i=idx))
 
-        def to_list(var):
+        def to_type(var):
             """Helper function to convert field to a list or a None object """
-            out = None
             if var == 'None':
                 out = None
-            elif isinstance(var, (int, float)):
-                out = [var]
-            elif isinstance(var, str):
-                out = var.split()
+            else:
+                out = var
             return out
 
-        conn = to_list(Links)
-        delay = to_list(Delay)
-        bw = to_list(BW)
-        loss = to_list(Loss)
-        jitter = to_list(Jitter)
+        delay = to_type(Delay)
+        bw = to_type(BW)
+        loss = to_type(Loss)
+        jitter = to_type(Jitter)
+        fr = to_type(From)
+        to = to_type(To)
 
-        if conn is not None:
-            if delay is None:
-                delay = [None] * len(conn)
-            if bw is None:
-                bw = [None] * len(conn)
-            if loss is None:
-                loss = [None] * len(conn)
-            if jitter is None:
-                jitter = [None] * len(conn)
-
-            assert len(conn) == len(delay), "{}: len(Links)={} does not match len(delay)={}".format(idx, len(conn), len(delay))
-            assert len(conn) == len(bw), "{}: len(Links)={} does not match len(bw)={}".format(idx, len(conn), len(bw))
-            assert len(conn) == len(loss), "{}: len(Links)={} does not match len(loss)={}".format(idx, len(conn), len(loss))
-            assert len(conn) == len(jitter), "{}: len(Links)={} does not match len(jitter)={}".format(idx, len(conn), len(jitter))
+        lat = None if Latitude == 'None' else float(Latitude)
+        lon = None if Longitude == 'None' else float(Longitude)
 
         self.name.append(Name)
         self.region.append(Region)
-        self.coords.append((float(Latitude), float(Longitude)))
+        self.coords.append((lat, lon))
         self.ip.append(IP)
 
         self.mac.append(mac)
         self.idx.append(idx)
-        self.connections.append(conn)
+        # self.connections.append(conn)
+
         self.pmu_idx.append(pmu_idx)
         self.delay.append(delay)
         self.bw.append(bw)
         self.loss.append(loss)
         self.jitter.append(jitter)
+        self.fr.append(fr)
+        self.to.append(to)
 
         self.n += 1
 
@@ -240,6 +232,8 @@ class Record(object):
     def dump(self):
         """Return a string of the dumped records in csv format"""
         ret = []
+
+        # TODO: fix deprecated function
 
         for i in range(self.n):
             conn = self.connections[i]
@@ -286,31 +280,7 @@ class Record(object):
                 # log.debug('Adding {ty} <{n}, {ip}> to network.'.format(ty=self._name, n=name, ip=ip))
 
     def add_link_to_mn(self, network):
-        """Method to add links from each element to the connections"""
-
-        for i, name, connect, delay, bw, loss, jitter in \
-                zip(range(self.n), self.mn_name, self.connections, self.delay, self.bw, self.loss, self.jitter):
-
-            if not connect:
-                continue
-
-            for i, c in enumerate(connect):
-                # if c is a switch, look up its canonical name
-                c = network.to_canonical(c)
-
-                # check for optional link configs
-                d = delay[i]
-                b = float(bw[i]) if bw[i] is not None else None
-                l = float(loss[i]) if loss[i] is not None else None
-                j = float(jitter[i]) if jitter[i] is not None else None
-
-                if not network.Link.exist_undirectioned(name, c):
-                    r = network.addLink(name, c, delay=d, bw=b, loss=l, jitter=j)
-                    # register the link element to the LTBNet object
-                    network.Link.add(name, c, r)
-                    # log.debug('Adding link <{fr}> to <{to}>.'.format(fr=name, to=c))
-                else:
-                    continue
+        pass
 
 
 class Region(Record):
@@ -364,15 +334,16 @@ class Router(Record):
     pass
 
 
-class Link(object):
+class Link(Record):
     """Link storage"""
     def __init__(self):
+        super(Link, self).__init__()
         self.links = []
-        self.idx = []
+        self.obj = []
 
-    def add(self, fr, to, idx):
+    def register(self, fr, to, idx):
         self.links.append((fr, to))
-        self.idx.append(idx)
+        self.obj.append(idx)
 
     def exist_undirectioned(self, fr, to):
         """Check if the undirectional path from `fr` to `to` exists"""
@@ -389,6 +360,27 @@ class Link(object):
             ret = True
 
         return ret
+
+    def add_link_to_mn(self, network):
+        """Method to add links from each element to the connections"""
+
+        for i, name, fr, to, delay, bw, loss, jitter in \
+                zip(range(self.n), self.mn_name, self.fr, self.to, self.delay, self.bw, self.loss, self.jitter):
+
+            fr = network.to_canonical(fr)
+            to = network.to_canonical(to)
+
+            # check for optional link configs
+            d = delay
+            b = float(bw) if bw is not None else None
+            l = float(loss) if loss is not None else None
+            j = float(jitter) if jitter is not None else None
+
+            if not network.Link.exist_undirectioned(fr, to):
+                r = network.addLink(fr, to, delay=d, bw=b, loss=l, jitter=j)
+                # register the link element to the LTBNet object
+                network.Link.register(fr, to, r)
+                # log.debug('Adding link <{fr}> to <{to}>.'.format(fr=name, to=c))
 
 
 class HwIntf(Record):
