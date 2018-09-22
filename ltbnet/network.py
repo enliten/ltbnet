@@ -1,6 +1,6 @@
 import sys
 import re
-
+import json
 from mininet.topo import Topo
 from mininet.link import Intf
 
@@ -44,17 +44,49 @@ class Network(Topo):
         self.add_link_to_mn()
         return self
 
-    def dump(self, path=None):
-        """Dump the configuration to a csv file"""
-        f = open(path, 'w') if path else sys.stdout
-        header = ['Idx', 'Type', 'Region', 'Name', 'Longitude', 'Latitude', 'Connections', 'MAC', 'IP']
-        f.write(','.join(header))
-        f.write('\n')
+    def make_dump(self):
+        """Prepare data in a list of lines from a CSV file. The first line is the header, and the following lines
+        are the data entries
+        """
+        lines = []
+
+        header = ['Idx', 'Type', 'Region', 'Name', 'Longitude', 'Latitude', 'MAC', 'IP',
+                  'PMU_IDX', 'From', 'To', 'Delay', 'BW', 'Loss', 'Jitter']
+        lines.append(header)
 
         for item in self.components:
-            f.write(self.__dict__[item].dump())
+            lines.extend(self.__dict__[item].dump())
+        return lines
+
+    def dump_csv(self, path=None):
+        """Dump the configuration to a csv file"""
+        lines = self.make_dump()
+
+        f = open(path, 'w') if path else sys.stdout
+
+        for line in lines:
+            f.write(','.join(str(x) for x in line))
             f.write('\n')
+
         f.close()
+
+    def dump_json(self, path=None):
+        """Dump the configuration to a json file"""
+        lines = self.make_dump()
+
+        fp = open(path, 'w') if path else sys.stdout
+
+        data = []
+        header = lines[0]
+        for i in range(1, len(lines)):
+            line = lines[i]
+            line_dct = {}
+
+            for key, val in zip(header, line):
+                line_dct[key] = val
+            data.append(line_dct)
+
+        out = json.dump(data, fp, indent=4)
 
     def setup_by_region(self):
         """Set up component information in Regions. Store PMU.idx in Region.pmu for each region"""
@@ -236,9 +268,6 @@ class Record(object):
         # TODO: fix deprecated function
 
         for i in range(self.n):
-            conn = self.connections[i]
-            if isinstance(conn, list):
-                conn = ' '.join(conn)
 
             line = [self.idx[i],
                     self._name,
@@ -246,14 +275,18 @@ class Record(object):
                     self.name[i],
                     str(self.coords[i][1]),
                     str(self.coords[i][0]),
-                    conn if conn else 'None',
                     self.mac[i] if self.mac[i] else 'None',
                     self.ip[i] if self.ip[i] else 'None',
                     self.pmu_idx[i] if self.pmu_idx[i] else 'None',
+                    self.delay[i] if self.pmu_idx[i] else 'None',
+                    self.bw[i] if self.bw[i] else 'None',
+                    self.loss[i] if self.loss[i] else 'None',
+                    self.jitter[i] if self.jitter[i] else 'None'
                     ]
-            ret.append(','.join(line))
 
-        return '\n'.join(ret)
+            ret.append(line)
+
+        return ret
 
     def build_mn_name(self):
         """Build names to be used in Mininet"""

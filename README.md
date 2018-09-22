@@ -57,51 +57,49 @@ values for `Type` and their meaning are the follows:
  multiple PMUs
  - Switch: network switch
  - Router: network router
- - PMU: phasor data concentrator. A PDC concentrates data within the region 
+ - PDC: phasor data concentrator. A PDC concentrates data within the region 
  and sends data to other PDCs when requested
  - PMU: phasor measurement unit. A PMU measures the bus voltage, frequency 
- (and possibly but not implemented, current)at the given bus (es)
+ (and possibly but not implemented, current)at the given bus (es). It is a
+ host in the communication network
+ - Link: communication link between any two communication network elements
  - HwIntf: hardware interface. Allow to attach hardware interface to the 
  emulated network
 
 A complete table of the supported fields for each type of component is listed 
 below.
 
-|           | Region            | Switch                    | Router | PMU                  | PDC | HwIntf            |
-|-----------|-------------------|---------------------------|--------|----------------------|-----|-------------------|
-| Idx       | unique identifier | <                         | <      | <                    | <   | <                 |
-| Region    | region name       | <                         | <      | <                    | <   | <                 |
-| Name      | instance name     | <                         | <      | <                    | <   | ifconfig NIC name |
-| Longitude | longitude value   | <                         | <      | <                    | <   | <                 |
-| Latitude  | Latitude value    | <                         | <      | <                    | <   | <                 |
-| Links     | -                 | space-sep Idx of upstream | <      | <                    | <   | <                 |
-| MAC       | -                 | MAC address               | <      | <                    | <   | -                 |
-| IP        | -                 | IP address                | <      | <                    | <   | -                 |
-| PMU_IDX   | -                 | -                         | -      | idx of the ANDES PMU | -   | -                 |
-| Delay     | -                 | delay on the links        | <      | <                    | <   | <                 |
-| BW        | -                 | bandwidth in Mbps         | <      | <                    | <   | <                 |
-| Loss      | -                 | data loss rate in %       | <      | <                    | <   | <                 |
-| Jitter    | -                 | jitter rate in %          | <      | <                    | <   | <                 |
+|           | Region            | Switch      | Router | PMU                  | PDC | Link               | HwIntf            |
+|-----------|-------------------|-------------|--------|----------------------|-----|--------------------|-------------------|
+| Idx       | unique identifier | <           | <      | <                    | <   | <                  | <                 |
+| Region    | region name       | <           | <      | <                    | <   | -                  | <                 |
+| Name      | instance name     | <           | <      | <                    | <   | <                  | ifconfig NIC name |
+| Longitude | longitude value   | <           | <      | <                    | <   | -                  | <                 |
+| Latitude  | Latitude value    | <           | <      | <                    | <   | -                  | <                 |
+| MAC       | -                 | MAC address | <      | <                    | <   | -                  | -                 |
+| IP        | -                 | IP address  | <      | <                    | <   | -                  | -                 |
+| PMU_IDX   | -                 | -           | -      | idx of the ANDES PMU | -   | -                  | -                 |
+| From      | -                 | -           | -      | -                    | -   | From Idx           | -                 |
+| To        | -                 | -           | -      | -                    | -   | To Idx             | -                 |
+| Delay     | -                 | -           | -      | -                    | -   | delay (with unit)  | <                 |
+| BW        | -                 | -           | -      | -                    | -   | bandwidth (Mbps)   | <                 |
+| Loss      | -                 | -           | -      | -                    | -   | data loss rate (%) | <                 |
+| Jitter    | -                 | -           | -      | -                    | -   | jitter rate (%)    | <                 |
 
 Note:
  - `<` means the same as the left
  - `-` means not applicable. In CSV files, the field should be filled with 
  literal `None`
- - `Links` specifies the names of the linked components, separated by space. 
- For example, if switch `s1` has `Links="s0 s2"`, it means switch `s1` is 
- connected to `s0` and `s2`
- - The fields `Delay`, `BW`, `Loss` and `Jitter` applies wherever `Links` is 
- not empty. Use literal `None` if not specified. Use space to separate the 
- same number of data as in `Links`.
+ - The fields `Delay`, `BW`, `Loss` and `Jitter` apply to  `Link` only.
  - `Delay` is a string with a value and a unit. For example, a 5 millisecond 
- delay is represented as `5ms`  
+ delay is represented as `5ms`
 
 ### Using the config file
 The config file is to be used by the `ltbnet` command-line program. To start 
 a network using config file `config_9pmu.json`, run the following:
 
 ```bash
-sudo ltbnet config_9pmu.json -v
+sudo ltbnet config_5pmu.json -v
 ```
 
 This enables the verbose mode of LTBNet.
