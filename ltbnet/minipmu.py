@@ -9,8 +9,8 @@ from andes.utils.dime import Dime
 
 from numpy import array, ndarray, zeros
 
-from pypmu import Pmu
-from pypmu.frame import ConfigFrame2, HeaderFrame
+from synchrophasor.pmu import Pmu
+from synchrophasor.frame import ConfigFrame2, HeaderFrame
 
 
 def get_logger(name):
