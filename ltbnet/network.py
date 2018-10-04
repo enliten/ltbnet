@@ -1,39 +1,14 @@
-# TODO: Hardware Interface Binding
-# TODO: Router support
-
-import os
-
-from mininet.net import Mininet
-from mininet.cli import CLI
+import sys
+import re
+import json
 from mininet.topo import Topo
 from mininet.link import Intf
 
 from mininet import log
 from mininet.node import Node
 
-import sys
-
-
-def parse_config_csv(file, path=''):
-    """Parses an LTBNet config.csv file and return the contents in a dictionary"""
-    keys = list()
-    out = list()
-    flag = False
-    with open(os.path.join(path, file)) as f:
-        for num, line in enumerate(f):
-            if line.startswith('#'):
-                continue
-            data = line.strip().split(',')
-
-            # Use the first valid line as the keys
-            if not flag:
-                keys = data
-                flag = True
-                continue
-
-            out.append({k: v for k, v in zip(keys, data)})
-
-    return out
+from ltbnet.utils import check_intf
+from ltbnet.minipmu import MiniPMU
 
 
 class Network(Topo):
@@ -46,6 +21,7 @@ class Network(Topo):
         self.Router = Router()
         self.PMU = PMU()
         self.Link = Link()
+        self.HwIntf = HwIntf()
 
         self.components = []
 
@@ -66,18 +42,51 @@ class Network(Topo):
         self.assign_ip()
         self.add_node_to_mn()
         self.add_link_to_mn()
+        return self
 
-    def dump(self, path=None):
-        """Dump the configuration to a csv file"""
-        f = open(path, 'w') if path else sys.stdout
-        header = ['Idx', 'Type', 'Region', 'Name', 'Longitude', 'Latitude', 'Connections', 'MAC', 'IP']
-        f.write(','.join(header))
-        f.write('\n')
+    def make_dump(self):
+        """Prepare data in a list of lines from a CSV file. The first line is the header, and the following lines
+        are the data entries
+        """
+        lines = []
+
+        header = ['Idx', 'Type', 'Region', 'Name', 'Longitude', 'Latitude', 'MAC', 'IP',
+                  'PMU_IDX', 'From', 'To', 'Delay', 'BW', 'Loss', 'Jitter']
+        lines.append(header)
 
         for item in self.components:
-            f.write(self.__dict__[item].dump())
+            lines.extend(self.__dict__[item].dump())
+        return lines
+
+    def dump_csv(self, path=None):
+        """Dump the configuration to a csv file"""
+        lines = self.make_dump()
+
+        f = open(path, 'w') if path else sys.stdout
+
+        for line in lines:
+            f.write(','.join(str(x) for x in line))
             f.write('\n')
+
         f.close()
+
+    def dump_json(self, path=None):
+        """Dump the configuration to a json file"""
+        lines = self.make_dump()
+
+        fp = open(path, 'w') if path else sys.stdout
+
+        data = []
+        header = lines[0]
+        for i in range(1, len(lines)):
+            line = lines[i]
+            line_dct = {}
+
+            for key, val in zip(header, line):
+                line_dct[key] = val
+            data.append(line_dct)
+
+        out = json.dump(data, fp, indent=4)
 
     def setup_by_region(self):
         """Set up component information in Regions. Store PMU.idx in Region.pmu for each region"""
@@ -109,21 +118,26 @@ class Network(Topo):
     def assign_ip(self, base='192.168.1.'):
         """Assign IP address in a LAN"""
 
-        for item in self.components:
-            self.__dict__[item].ip = [''] * self.__dict__[item].n
+        # for item in self.components:
+        #     self.__dict__[item].ip = [''] * self.__dict__[item].n
 
         count = 1
 
         # for PDCs
-        self.PDC.ip = [''] * self.PDC.n
+        # self.PDC.ip = [''] * self.PDC.n
         for i in range(self.PDC.n):
             count += 1
+            if self.PDC.ip[i]:
+                continue
             self.PDC.ip[i] = base + str(count)
 
         # for PMUs
-        self.PMU.ip = [''] * self.PMU.n
+        # self.PMU.ip = [''] * self.PMU.n
         for i in range(self.PMU.n):
             count += 1
+            if self.PMU.ip[i]:
+                continue
+
             self.PMU.ip[i] = base + str(count)
 
     def add_node_to_mn(self):
@@ -142,6 +156,15 @@ class Network(Topo):
         else:
             return idx
 
+    def add_hw_intf(self, net):
+        """Add hardware interfaces from Network.HwIntf records"""
+        for i, name, to in zip(range(self.HwIntf.n), self.HwIntf.name, self.HwIntf.to):
+            switch_index = self.Switch.lookup_index(to)
+            log.info('*** Adding hardware interface', name, 'to switch', to, '\n')
+
+            # TODO: add (delay, bw, jitter and loss)
+            r = Intf(name, node=net.switches[switch_index])
+
 
 class Record(object):
     """Base class for config.csv records"""
@@ -153,11 +176,19 @@ class Record(object):
         self.name = []
         self.coords = []
         self.mac = []
+        self.pmu_idx = []
+        self.delay = []
+        self.bw = []
+        self.jitter = []
+        self.loss = []
         self.ip = []
+        self.fr = []
+        self.to = []
         self.region = []
         self.prefix = ''
         self.connections = []
         self.mn_name = []
+        self.mn_object = []
 
         self.build()
 
@@ -165,8 +196,10 @@ class Record(object):
         """Custom build function"""
         pass
 
-    def add(self, Type=None, Longitude=None, Latitude=None, MAC=None, Idx=None, Name='', Region='', Connections = '',
-            IP='', **kwargs):
+    def add(self, Type=None, Longitude=None, Latitude=None, MAC=None,
+            Idx=None, Name='', Region='', IP='',
+            PMU_IDX='', Delay='', BW='', Loss='', Jitter='', From='', To='', **kwargs):
+
         if not self._name:
             log.error('Device name not initialized')
             return
@@ -176,28 +209,65 @@ class Record(object):
 
         mac = None if MAC == 'None' else MAC
         idx = self._name + '_' + str(self.n) if not Idx else Idx
+        pmu_idx = None if PMU_IDX == 'None' else int(PMU_IDX)
+
         if idx in self.idx:
             log.error('PMU Idx <{i}> conflict.'.format(i=idx))
-        conn = None if Connections == 'None' else Connections.split()
+
+        def to_type(var):
+            """Helper function to convert field to a list or a None object """
+            if var == 'None':
+                out = None
+            else:
+                out = var
+            return out
+
+        delay = to_type(Delay)
+        bw = to_type(BW)
+        loss = to_type(Loss)
+        jitter = to_type(Jitter)
+        fr = to_type(From)
+        to = to_type(To)
+
+        lat = None if Latitude == 'None' else float(Latitude)
+        lon = None if Longitude == 'None' else float(Longitude)
 
         self.name.append(Name)
         self.region.append(Region)
-        self.coords.append((float(Latitude), float(Longitude)))
+        self.coords.append((lat, lon))
         self.ip.append(IP)
 
         self.mac.append(mac)
         self.idx.append(idx)
-        self.connections.append(conn)
+        # self.connections.append(conn)
+
+        self.pmu_idx.append(pmu_idx)
+        self.delay.append(delay)
+        self.bw.append(bw)
+        self.loss.append(loss)
+        self.jitter.append(jitter)
+        self.fr.append(fr)
+        self.to.append(to)
+
         self.n += 1
+
+    def lookup_index(self, idx, canonical=False):
+        """Return the numerical index of the the element `idx`"""
+        records = self.idx
+        if canonical:
+            records = self.mn_name
+
+        if idx not in records:
+            return -1
+        return records.index(idx)
 
     def dump(self):
         """Return a string of the dumped records in csv format"""
         ret = []
 
+        # TODO: fix deprecated function
+
         for i in range(self.n):
-            conn = self.connections[i]
-            if isinstance(conn, list):
-                conn = ' '.join(conn)
 
             line = [self.idx[i],
                     self._name,
@@ -205,13 +275,18 @@ class Record(object):
                     self.name[i],
                     str(self.coords[i][1]),
                     str(self.coords[i][0]),
-                    conn if conn else 'None',
                     self.mac[i] if self.mac[i] else 'None',
                     self.ip[i] if self.ip[i] else 'None',
+                    self.pmu_idx[i] if self.pmu_idx[i] else 'None',
+                    self.delay[i] if self.pmu_idx[i] else 'None',
+                    self.bw[i] if self.bw[i] else 'None',
+                    self.loss[i] if self.loss[i] else 'None',
+                    self.jitter[i] if self.jitter[i] else 'None'
                     ]
-            ret.append(','.join(line))
 
-        return '\n'.join(ret)
+            ret.append(line)
+
+        return ret
 
     def build_mn_name(self):
         """Build names to be used in Mininet"""
@@ -230,28 +305,15 @@ class Record(object):
 
         for i, name, ip in zip(range(self.n), self.mn_name, self.ip):
             if self._name == 'Switch':
-                network.addSwitch(name)
+                n = network.addSwitch(name)
+                self.mn_object.append(n)
             else:
-                network.addHost(name, ip=ip)
+                n = network.addHost(name, ip=ip)
+                self.mn_object.append(n)
                 # log.debug('Adding {ty} <{n}, {ip}> to network.'.format(ty=self._name, n=name, ip=ip))
 
     def add_link_to_mn(self, network):
-        """Method to add links from each element to the connections"""
-
-        for i, name, connect in zip(range(self.n), self.mn_name, self.connections):
-            if not connect:
-                continue
-
-            for c in connect:
-                # if c is a switch, look up its canonical name
-                c = network.to_canonical(c)
-
-                if not network.Link.exist_undirectioned(name, c):
-                    r = network.addLink(name, c)
-                    network.Link.add(name, c, r)
-                    # log.debug('Adding link <{fr}> to <{to}>.'.format(fr=name, to=c))
-                else:
-                    continue
+        pass
 
 
 class Region(Record):
@@ -265,7 +327,24 @@ class Region(Record):
 
 class PMU(Record):
     """Data streaming PMU node class"""
-    pass
+    def run_pmu(self, network):
+        """Run pyPMU on the defined PMU nodes"""
+        print(self.name)
+        run_minipmu = 'minipmu {port} {pmu_idx} -n={name}'
+        for i in range(self.n):
+            name = self.mn_name[i]
+            node = network.get(name)
+            pmu_name = self.name[i]
+            pmu_idx = self.pmu_idx[i]
+
+            if pmu_name[:4] != 'PMU_':
+                pmu_name = 'PMU_' + name
+            call_str = run_minipmu.format(port=1410,
+                                          pmu_idx=pmu_idx,
+                                          name=pmu_name,
+                                          )
+
+            node.popen(call_str)  # TODO: Get bus idx by PMU name
 
 
 class PDC(Record):
@@ -288,15 +367,16 @@ class Router(Record):
     pass
 
 
-class Link(object):
+class Link(Record):
     """Link storage"""
     def __init__(self):
+        super(Link, self).__init__()
         self.links = []
-        self.idx = []
+        self.obj = []
 
-    def add(self, fr, to, idx):
+    def register(self, fr, to, idx):
         self.links.append((fr, to))
-        self.idx.append(idx)
+        self.obj.append(idx)
 
     def exist_undirectioned(self, fr, to):
         """Check if the undirectional path from `fr` to `to` exists"""
@@ -314,18 +394,29 @@ class Link(object):
 
         return ret
 
+    def add_link_to_mn(self, network):
+        """Method to add links from each element to the connections"""
 
-if __name__ == '__main__':
+        for i, name, fr, to, delay, bw, loss, jitter in \
+                zip(range(self.n), self.mn_name, self.fr, self.to, self.delay, self.bw, self.loss, self.jitter):
 
-    log.setLogLevel('info')
-    network = Network()
+            fr = network.to_canonical(fr)
+            to = network.to_canonical(to)
 
-    config = parse_config_csv('config.csv', )
-    network.setup(config)
-    # network.dump()
+            # check for optional link configs
+            d = delay
+            b = float(bw) if bw is not None else None
+            l = float(loss) if loss is not None else None
+            j = float(jitter) if jitter is not None else None
 
-    net = Mininet(topo=network)
-    net.start()
-    CLI(net)
+            if not network.Link.exist_undirectioned(fr, to):
+                r = network.addLink(fr, to, delay=d, bw=b, loss=l, jitter=j)
+                # register the link element to the LTBNet object
+                network.Link.register(fr, to, r)
+                # log.debug('Adding link <{fr}> to <{to}>.'.format(fr=name, to=c))
 
-    net.stop()
+
+class HwIntf(Record):
+    """Hardware Interface class"""
+    def add_link_to_mn(self, network):
+        pass
