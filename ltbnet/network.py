@@ -328,7 +328,7 @@ class Region(Record):
 class PMU(Record):
     """Data streaming PMU node class"""
     def run_pmu(self, network):
-        """Run pyPMU on the defined PMU nodes"""
+        """Run MiniPMU on the defined PMU nodes"""
         print(self.name)
         run_minipmu = 'minipmu {port} {pmu_idx} -n={name}'
         for i in range(self.n):
