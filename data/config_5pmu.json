@@ -14,7 +14,8 @@
     "Delay": "None",
     "BW": "None",
     "Loss": "None",
-    "Jitter": "None"
+    "Jitter": "None",
+    "Status": 1
   },
   {
     "Idx": "BCTC",
@@ -31,7 +32,8 @@
     "Delay": "None",
     "BW": "None",
     "Loss": "None",
-    "Jitter": "None"
+    "Jitter": "None",
+    "Status": 1
   },
   {
     "Idx": "S_AESO",
@@ -48,7 +50,8 @@
     "Delay": "None",
     "BW": "None",
     "Loss": "None",
-    "Jitter": "None"
+    "Jitter": "None",
+    "Status": 1
   },
   {
     "Idx": "S_BCTC",
@@ -65,7 +68,8 @@
     "Delay": "None",
     "BW": 10,
     "Loss": "None",
-    "Jitter": "None"
+    "Jitter": "None",
+    "Status": 1
   },
   {
     "Idx": "C_AESO",
@@ -82,7 +86,8 @@
     "Delay": "None",
     "BW": "None",
     "Loss": "None",
-    "Jitter": "None"
+    "Jitter": "None",
+    "Status": 1
   },
   {
     "Idx": "C_BCTC",
@@ -99,7 +104,8 @@
     "Delay": "None",
     "BW": "None",
     "Loss": "None",
-    "Jitter": "None"
+    "Jitter": "None",
+    "Status": 1
   },
   {
     "Idx": "DEVERS1",
@@ -116,7 +122,8 @@
     "Delay": "None",
     "BW": "None",
     "Loss": "None",
-    "Jitter": "None"
+    "Jitter": "None",
+    "Status": 1
   },
   {
     "Idx": "DEVERS2",
@@ -133,7 +140,8 @@
     "Delay": "None",
     "BW": "None",
     "Loss": "None",
-    "Jitter": "None"
+    "Jitter": "None",
+    "Status": 1
   },
   {
     "Idx": "DEVERS3",
@@ -150,7 +158,8 @@
     "Delay": "None",
     "BW": "None",
     "Loss": "None",
-    "Jitter": "None"
+    "Jitter": "None",
+    "Status": 1
   },
   {
     "Idx": "DEVERS4",
@@ -167,7 +176,8 @@
     "Delay": "None",
     "BW": "None",
     "Loss": "None",
-    "Jitter": "None"
+    "Jitter": "None",
+    "Status": 1
   },
   {
     "Idx": "DEVERS5",
@@ -184,7 +194,8 @@
     "Delay": "None",
     "BW": "None",
     "Loss": "None",
-    "Jitter": "None"
+    "Jitter": "None",
+    "Status": 1
   },
   {
     "Idx": "INTF1",
@@ -201,7 +212,8 @@
     "Delay": "None",
     "BW": "None",
     "Loss": "None",
-    "Jitter": "None"
+    "Jitter": "None",
+    "Status": 1
   },
   {
     "Idx": "L_BCTC_AESO",
@@ -218,7 +230,8 @@
     "Delay": "None",
     "BW": 10,
     "Loss": "None",
-    "Jitter": "None"
+    "Jitter": "None",
+    "Status": 1
   },
   {
     "Idx": "L_C_AESO",
@@ -235,7 +248,8 @@
     "Delay": "None",
     "BW": "None",
     "Loss": "None",
-    "Jitter": "None"
+    "Jitter": "None",
+    "Status": 1
   },
   {
     "Idx": "L_C_BCTC",
@@ -252,7 +266,8 @@
     "Delay": "None",
     "BW": "None",
     "Loss": "None",
-    "Jitter": "None"
+    "Jitter": "None",
+    "Status": 1
   },
   {
     "Idx": "L_DEVERS1",
@@ -269,7 +284,8 @@
     "Delay": "None",
     "BW": "None",
     "Loss": "None",
-    "Jitter": "None"
+    "Jitter": "None",
+    "Status": 1
   },
   {
     "Idx": "L_DEVERS2",
@@ -286,7 +302,8 @@
     "Delay": "None",
     "BW": "None",
     "Loss": "None",
-    "Jitter": "None"
+    "Jitter": "None",
+    "Status": 1
   },
   {
     "Idx": "L_DEVERS3",
@@ -303,7 +320,8 @@
     "Delay": "None",
     "BW": "None",
     "Loss": "None",
-    "Jitter": "None"
+    "Jitter": "None",
+    "Status": 1
   },
   {
     "Idx": "L_DEVERS4",
@@ -320,7 +338,8 @@
     "Delay": "None",
     "BW": "None",
     "Loss": "None",
-    "Jitter": "None"
+    "Jitter": "None",
+    "Status": 1
   },
   {
     "Idx": "L_DEVERS5",
@@ -337,6 +356,7 @@
     "Delay": "None",
     "BW": 2,
     "Loss": "None",
-    "Jitter": "None"
+    "Jitter": "None",
+    "Status": 1
   }
 ]
