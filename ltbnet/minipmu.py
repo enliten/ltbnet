@@ -5,7 +5,7 @@ import logging
 import time
 import argparse
 
-from andes.utils.dime import Dime
+from andes_addon.dime import Dime
 
 from numpy import array, ndarray, zeros
 
