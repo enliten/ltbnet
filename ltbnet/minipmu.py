@@ -5,6 +5,8 @@ import logging
 import time
 import argparse
 
+from math import pi
+
 from andes_addon.dime import Dime
 
 from numpy import array, ndarray, zeros
@@ -12,22 +14,20 @@ from numpy import array, ndarray, zeros
 from synchrophasor.pmu import Pmu
 from synchrophasor.frame import ConfigFrame2, HeaderFrame
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
-def get_logger(name):
-    # TODO: set logging level
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.WARNING)
-    if not logger.handlers:
-        # Prevent logging from propagating to the root logger
-        logger.propagate = 0
-        console = logging.StreamHandler()
-        fh = logging.FileHandler('minipmu.log')
-        logger.addHandler(console)
-        logger.addHandler(fh)
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(message)s')
-        console.setFormatter(formatter)
-        fh.setFormatter(formatter)
-    return logger
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(message)s')
+
+fh = logging.FileHandler('/var/log/minipmu.log')
+fh.setFormatter(formatter)
+logger.addHandler(fh)
+
+# ---- logging to console blocks MiniPMU when if in Mininet
+# console = logging.StreamHandler()
+# console.setFormatter(formatter)
+# logger.addHandler(console)
+# -----------------------------
 
 
 class MiniPMU(object):
@@ -64,7 +64,6 @@ class MiniPMU(object):
         self.reset_var()
 
         self.dimec = Dime(self.name, self.dime_address)
-        self.logger = get_logger(self.name)
         self.pmu = Pmu(ip=pmu_ip, port=pmu_port)
 
     def reset_var(self):
@@ -80,6 +79,10 @@ class MiniPMU(object):
                         'vm': [],
                         'w': [],
                         }
+
+        self.fn = 60
+        self.Vn = []
+
         self.Varheader = list()
         self.Idxvgs = dict()
         self.SysParam = dict()
@@ -97,10 +100,10 @@ class MiniPMU(object):
         """
         Starts the dime client stored in `self.dimec`
         """
-        self.logger.info('Connecting to server at {}'.format(self.dime_address))
+        logger.info('Connecting to server at {}'.format(self.dime_address))
         assert self.dimec.start()
 
-        self.logger.info('DiME client connected')
+        logger.info('DiME client connected')
 
     def respond_to_sim(self):
         """
@@ -129,8 +132,23 @@ class MiniPMU(object):
             for i in range(len(self.bus_name)):
                 self.bus_name[i] = self.SysName['Bus'][self.pmu_idx[i] - 1]
 
-        self.logger.debug('PMU names changed to: {}'.format(self.bus_name))
+        logger.debug('PMU names changed to: {}'.format(self.bus_name))
         return self.bus_name
+
+    def get_bus_Vn(self):
+        """
+        TODO: get bus Vn
+
+        Returns
+        -------
+
+        """
+        self.Vn = [1] * len(self.pmu_idx)
+
+        for i, idx in enumerate(self.pmu_idx):
+            self.Vn[i] = self.SysParam['Bus'][idx][1] * 1000  # get Vn
+
+        logger.info('Retrieved bus Vn {}'.format(self.Vn))
 
     def config_pmu(self):
         """
@@ -139,26 +157,26 @@ class MiniPMU(object):
         :return: None
         """
 
-        self.cfg = ConfigFrame2(self.pmu_idx[0],  # PMU_ID
-                           1000000,  # TIME_BASE
-                           1,  # Number of PMUs included in data frame
-                           self.bus_name[0],  # Station name
-                           self.pmu_idx[0],  # Data-stream ID(s)
-                           (True, True, True, True),  # Data format - POLAR; PH - REAL; AN - REAL; FREQ - REAL;
-                           1,  # Number of phasors
-                           1,  # Number of analog values
-                           1,  # Number of digital status words
-                           ["VA", "ANALOG1", "BREAKER 1 STATUS",
+        self.cfg = ConfigFrame2(pmu_id_code=self.pmu_idx[0],  # PMU_ID
+                           time_base=1000000,  # TIME_BASE
+                           num_pmu=1,  # Number of PMUs included in data frame
+                           station_name=self.bus_name[0],  # Station name
+                           id_code=self.pmu_idx[0],  # Data-stream ID(s)
+                           data_format=(True, True, True, True),  # Data format - POLAR; PH - REAL; AN - REAL; FREQ - REAL;
+                           phasor_num=1,  # Number of phasors
+                           analog_num=1,  # Number of analog values
+                           digital_num=1,  # Number of digital status words
+                            channel_names=["V_PHASOR", "ANALOG1", "BREAKER 1 STATUS",
                             "BREAKER 2 STATUS", "BREAKER 3 STATUS", "BREAKER 4 STATUS", "BREAKER 5 STATUS",
                             "BREAKER 6 STATUS", "BREAKER 7 STATUS", "BREAKER 8 STATUS", "BREAKER 9 STATUS",
                             "BREAKER A STATUS", "BREAKER B STATUS", "BREAKER C STATUS", "BREAKER D STATUS",
                             "BREAKER E STATUS", "BREAKER F STATUS", "BREAKER G STATUS"],  # Channel Names
-                           [(0, 'v')],  # Conversion factor for phasor channels - (float representation, not important)
-                           [(1, 'pow')],  # Conversion factor for analog channels
-                           [(0x0000, 0xffff)],  # Mask words for digital status words
-                           60,  # Nominal frequency
-                           1,  # Configuration change count
-                           30)  # Rate of phasor data transmission)
+                           ph_units=[(0, 'v')],  # Conversion factor for phasor channels - (float representation, not important)
+                           an_units=[(1, 'pow')],  # Conversion factor for analog channels
+                           dig_units=[(0x0000, 0xffff)],  # Mask words for digital status words
+                           f_nom=60,  # Nominal frequency
+                           cfg_count=1,  # Configuration change count
+                           data_rate=30)  # Rate of phasor data transmission)
 
         self.hf = HeaderFrame(self.pmu_idx[0],  # PMU_ID
                               "MiniPMU <{name}> {pmu_idx}".format(name=self.name, pmu_idx = self.pmu_idx))  # Header Message
@@ -181,10 +199,11 @@ class MiniPMU(object):
 
         :return: ``var_idx`` in ``pmudata``
         """
+        npmu = len(self.Idxvgs['Pmu']['vm'][0])
 
-        self.var_idx['vm'] = [3 * int(i) -3 for i in self.pmu_idx]
-        self.var_idx['am'] = [3 * int(i) -2 for i in self.pmu_idx]
-        self.var_idx['w'] = [3 * int(i) -1 for i in self.pmu_idx]
+        self.var_idx['vm'] = [int(i) - 1 for i in self.pmu_idx]
+        self.var_idx['am'] = [npmu + int(i) - 1 for i in self.pmu_idx]
+        self.var_idx['w'] = [2 * npmu + int(i) - 1 for i in self.pmu_idx]
 
     @property
     def vgsvaridx(self):
@@ -218,7 +237,9 @@ class MiniPMU(object):
         if var is False or None:
             return ret
 
-        self.logger.debug('variable <{}> synced.'.format(var))
+        if self.reset is True:
+            logger.debug('variable <{}> synced.'.format(var))
+
         data = self.dimec.workspace[var]
 
         if var in ('SysParam', 'Idxvgs', 'Varheader'):
@@ -227,15 +248,15 @@ class MiniPMU(object):
             if self.reset is True:
                 self.__dict__[var] = data
             else:
-                self.logger.info('{} not handled outside reset cycle'.format(var))
+                logger.info('{} not handled outside reset cycle'.format(var))
 
         elif var == 'pmudata':
             # only handle pmudata during normal cycle
             if self.reset is False:
-                self.logger.info('data received at t={}'.format(data['t']))
+                logger.info('data received at t={}'.format(data['t']))
                 self.handle_measurement_data(data)
             else:
-                self.logger.info('{} not handled during reset cycle'.format(var))
+                logger.info('{} not handled during reset cycle'.format(var))
 
         # handle SysName any time
         elif var == 'SysName':
@@ -247,7 +268,7 @@ class MiniPMU(object):
             self.reset_var()
 
         else:
-            self.logger.info('{} not handled during normal ops'.format(var))
+            logger.info('{} not handled during normal ops'.format(var))
 
         return var
 
@@ -281,7 +302,7 @@ class MiniPMU(object):
 
             if self.reset is True:
                 # receive init and respond
-                self.logger.debug('Entering reset mode...')
+                logger.debug('Entering reset mode...')
 
                 while True:
                     var = self.sync_and_handle()
@@ -291,6 +312,8 @@ class MiniPMU(object):
 
                     if len(self.Varheader) > 0 and len(self.Idxvgs) > 0 and len(self.SysParam) > 0:
                         self.find_var_idx()
+                        self.get_bus_Vn()
+
                         # attemp to sync SysName
                         var = self.sync_and_handle()
                         break
@@ -303,12 +326,12 @@ class MiniPMU(object):
 
                 self.reset = False
 
-            self.logger.debug('Entering sync...')
+            logger.debug('Entering sync...')
 
             var = self.sync_and_handle()
-            time.sleep(0.005)
+            time.sleep(0.001)
 
-            self.logger.debug('Entering sleep...')
+            logger.debug('Entering sleep...')
 
             if var is False:
                 continue
@@ -317,21 +340,50 @@ class MiniPMU(object):
                 if self.pmu.clients and not self.reset:
 
                     try:
-                        self.pmu.send_data(phasors=[(int(self.last_data[0, 1]),
-                                                     int(self.last_data[0, 0]))],
+                        self.pmu.send_data(phasors=[(self.last_data[0, self.var_idx['vm']] * self.Vn[0],
+                                                     wrap_angle(self.last_data[0, self.var_idx['am']]),
+                                                     )],
                                            analog=[9.99],
                                            digital=[0x0001],
-                                           freq=self.last_data[0, 2]
+                                           freq=self.last_data[0, self.var_idx['w']] * self.fn
                                            )
 
+                        logger.info('sending data freq={f}, vm={vm}, am={am}'.format(f=self.last_data[0, self.var_idx['w']]*self.fn,
+                                    vm=self.last_data[0, self.var_idx['vm']] * self.Vn[0],
+                                    am=self.last_data[0, self.var_idx['am']]))
+
                     except Exception as e:
-                        self.logger.exception(e)
+                        logger.exception(e)
+
+
+def wrap_angle(a):
+    """
+    Wrap angle to within [-pi, pi]
+
+    Parameters
+    ----------
+    a : float
+        angle value in radian
+
+    Returns
+    -------
+
+    """
+    while a > pi:
+        a -= pi
+
+    while a < -pi:
+        a += pi
+
+    return a
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-n', '--name', default='MiniPMU', help='PMU instance name', type=str)
     parser.add_argument('-a', '--dime_address', default='ipc:///tmp/dime', help='DiME server address')
+    parser.add_argument('--fn', default=60, help='nominal frequency (Hz)', type=int)
+    parser.add_argument('--vn', default=1, help='voltage base (kV)')
     parser.add_argument('pmu_port', help='PMU TCP/IP port', type=int)
     parser.add_argument('pmu_idx', help='PMU indices from ANDES in list', type=str)
 
