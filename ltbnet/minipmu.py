@@ -4,8 +4,10 @@
 import logging
 import time
 import argparse
+import numpy as np
 
 from math import pi
+from enum import Enum
 
 from andes_addon.dime import Dime
 
@@ -28,6 +30,14 @@ logger.addHandler(fh)
 # console.setFormatter(formatter)
 # logger.addHandler(console)
 # -----------------------------
+
+
+class RecordState(Enum):
+    """PMU record-replay state"""
+    IDLE = 0
+    RECORDING = 1
+    RECORDED = 2
+    REPLAYING = 3
 
 
 class MiniPMU(object):
@@ -56,6 +66,9 @@ class MiniPMU(object):
         self.dime_address = dime_address
         self.pmu_idx = pmu_idx
         self.max_store = max_store
+
+        # for recording
+        self.max_store_record = 30 * 2000  # 2000 seconds
 
         self.reset = True
         self.pmu_configured = False
@@ -93,8 +106,16 @@ class MiniPMU(object):
         self.data = ndarray([])
         self.count = 0
 
+        # recording storage
+        self.t_record = ndarray([])
+        self.data_record = ndarray([])
+        self.count_record = 0
+        self.counter_replay = 0  # replay index into `data_record` and `t_record`
+
         self.last_data = None
         self.last_t = None
+
+        self.record_state = RecordState.IDLE
 
     def start_dime(self):
         """
@@ -137,7 +158,7 @@ class MiniPMU(object):
 
     def get_bus_Vn(self):
         """
-        TODO: get bus Vn
+        Retrieve Bus.Vn
 
         Returns
         -------
@@ -209,20 +230,33 @@ class MiniPMU(object):
     def vgsvaridx(self):
         return array(self.var_idx['vm'] + self.var_idx['am'] + self.var_idx['w'], dtype=int)
 
-    def init_storage(self):
+    def init_storage(self, flush=False):
         """
         Initialize data storage `self.t` and `self.data`
 
         :return: if the storage has been reset
         """
+        ret = False
 
         if self.count % self.max_store == 0:
             self.t = zeros(shape=(self.max_store, 1), dtype=float)
             self.data = zeros(shape=(self.max_store, len(self.pmu_idx * 3)), dtype=float)
             self.count = 0
-            return True
+            ret = True
         else:
-            return False
+            ret = False
+
+        if (self.count_record % self.max_store_record == 0) or (flush is True):
+            self.t_record = zeros(shape=(self.max_store_record, 1), dtype=float)
+            self.data_record = zeros(shape=(self.max_store_record, len(self.pmu_idx * 3)), dtype=float)
+            self.count_record = 0
+            self.counter_replay = 0
+
+            ret = ret and True
+        else:
+            ret = False
+
+        return ret
 
     def sync_and_handle(self):
         """
@@ -253,7 +287,7 @@ class MiniPMU(object):
         elif var == 'pmudata':
             # only handle pmudata during normal cycle
             if self.reset is False:
-                logger.info('data received at t={}'.format(data['t']))
+                logger.info('In, t={:.4f}'.format(data['t']))
                 self.handle_measurement_data(data)
             else:
                 logger.info('{} not handled during reset cycle'.format(var))
@@ -266,6 +300,41 @@ class MiniPMU(object):
         elif var == 'DONE' and data == 1:
             self.reset = True
             self.reset_var()
+
+        elif var == 'pmucmd' and isinstance(data, dict):
+            cmd = ''
+            if data.get('record', 0) == 1:
+                # start recording
+                if self.record_state == RecordState.IDLE or self.record_state == RecordState.RECORDED:
+                    self.record_state = RecordState.RECORDING
+                    cmd = 'start recording'
+                else:
+                    logging.warning('cannot start recording in state {}'.format(self.record_state))
+
+            elif data.get('record', 0) == 2:
+                # stop recording if started
+                if self.record_state == RecordState.RECORDING:
+                    cmd = 'stop recording'
+                    self.record_state = RecordState.RECORDED
+                else:
+                    logging.warning('cannot stop recording in state {}'.format(self.record_state))
+
+            if data.get('replay', 0) == 1:
+                # start replay
+                if self.record_state == RecordState.RECORDED:
+                    cmd = 'start replay'
+                    self.record_state = RecordState.REPLAYING
+                else:
+                    logging.warning('cannot start replaying in state {}'.format(self.record_state))
+
+            if data.get('flush', 0) == 1:
+                # flush storage
+                cmd = 'flush storage'
+                self.init_storage(flush=True)
+                self.record_state = RecordState.IDLE
+
+            if cmd:
+                logger.info('command received, {}'.format(cmd))
 
         else:
             logger.info('{} not handled during normal ops'.format(var))
@@ -282,8 +351,13 @@ class MiniPMU(object):
 
         self.data[self.count, :] = data['vars'][0, self.vgsvaridx].reshape(-1)
         self.t[self.count, :] = data['t']
-
         self.count += 1
+
+        # record
+        if self.record_state == RecordState.RECORDING:
+            self.data_record[self.count_record, :] = data['vars'][0, self.vgsvaridx].reshape(-1)
+            self.t_record[self.count_record, :] = data['t']
+            self.count_record += 1
 
         self.last_data = data['vars']
         self.last_t = data['t']
@@ -326,12 +400,10 @@ class MiniPMU(object):
 
                 self.reset = False
 
-            logger.debug('Entering sync...')
+            # logger.debug('Entering sync and short sleep...')
 
             var = self.sync_and_handle()
             time.sleep(0.001)
-
-            logger.debug('Entering sleep...')
 
             if var is False:
                 continue
@@ -339,18 +411,35 @@ class MiniPMU(object):
             elif var == 'pmudata':
                 if self.pmu.clients and not self.reset:
 
+                    if self.record_state == RecordState.REPLAYING:
+                        # prepare recorded data
+                        npmu = len(self.pmu_idx)
+                        v_mag = self.data_record[self.counter_replay, :npmu] * self.Vn[0]
+                        v_ang = wrap_angle(self.data_record[self.counter_replay, npmu:2*npmu])
+                        v_freq = self.data_record[self.counter_replay, 2*npmu:3*npmu] * self.fn
+                        self.counter_replay += 1
+
+                        # at the end of replay, reset
+                        if self.counter_replay == self.count_record:
+                            self.record_state = RecordState.RECORDED
+
+                    else:
+                        # use fresh data
+                        v_mag = self.last_data[0, self.var_idx['vm']] * self.Vn[0]
+                        v_ang = wrap_angle(self.last_data[0, self.var_idx['am']])
+                        v_freq = self.last_data[0, self.var_idx['w']] * self.fn
+
+                    # TODO: add noise to data
+
                     try:
-                        self.pmu.send_data(phasors=[(self.last_data[0, self.var_idx['vm']] * self.Vn[0],
-                                                     wrap_angle(self.last_data[0, self.var_idx['am']]),
-                                                     )],
+                        # TODO: fix multiple measurement (multi-bus -> one PMU case)
+                        self.pmu.send_data(phasors=[(v_mag, v_ang)],
                                            analog=[9.99],
                                            digital=[0x0001],
-                                           freq=self.last_data[0, self.var_idx['w']] * self.fn
+                                           freq= v_freq
                                            )
 
-                        logger.info('sending data freq={f}, vm={vm}, am={am}'.format(f=self.last_data[0, self.var_idx['w']]*self.fn,
-                                    vm=self.last_data[0, self.var_idx['vm']] * self.Vn[0],
-                                    am=self.last_data[0, self.var_idx['am']]))
+                        logger.info('Out, f={f:.5f}, vm={vm:.1f}, am={am:.2f}'.format(f=v_freq[0], vm=v_mag[0], am=v_ang[0]))
 
                     except Exception as e:
                         logger.exception(e)
@@ -384,6 +473,7 @@ def main():
     parser.add_argument('-a', '--dime_address', default='ipc:///tmp/dime', help='DiME server address')
     parser.add_argument('--fn', default=60, help='nominal frequency (Hz)', type=int)
     parser.add_argument('--vn', default=1, help='voltage base (kV)')
+    parser.add_argument('--noise', default=0, help='noise level', type=int)
     parser.add_argument('pmu_port', help='PMU TCP/IP port', type=int)
     parser.add_argument('pmu_idx', help='PMU indices from ANDES in list', type=str)
 

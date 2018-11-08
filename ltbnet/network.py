@@ -343,7 +343,7 @@ class PMU(Record):
                                           name=pmu_name,
                                           )
 
-            node.popen(call_str)  # TODO: Get bus idx by PMU nam
+            node.popen(call_str)
             log.info('{name} idx={idx} started'.format(name=pmu_name, idx=pmu_idx))
 
 
