@@ -1419,7 +1419,7 @@
     "BW": "None",
     "Loss": "None",
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "CRAIG3",
@@ -1437,7 +1437,7 @@
     "BW": "None",
     "Loss": "None",
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "FOURCORN",
@@ -1455,7 +1455,7 @@
     "BW": "None",
     "Loss": "None",
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "FOURCORN3",
@@ -1473,7 +1473,7 @@
     "BW": "None",
     "Loss": "None",
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "FCNGN4CC",
@@ -1491,7 +1491,7 @@
     "BW": "None",
     "Loss": "None",
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "FOURCORN4",
@@ -1509,7 +1509,7 @@
     "BW": "None",
     "Loss": "None",
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "HAYDEN",
@@ -1527,7 +1527,7 @@
     "BW": "None",
     "Loss": "None",
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "NAVAJO",
@@ -1635,7 +1635,7 @@
     "BW": "None",
     "Loss": "None",
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "SJUANG4",
@@ -1653,7 +1653,7 @@
     "BW": "None",
     "Loss": "None",
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "WESTWING",
@@ -1689,7 +1689,7 @@
     "BW": "None",
     "Loss": "None",
     "Jitter": "None",
-    "Status": 0
+    "Status": 1
   },
   {
     "Idx": "NAVAJO2",
@@ -1833,7 +1833,7 @@
     "BW": "None",
     "Loss": "None",
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "FOURCOR2",
@@ -1851,7 +1851,7 @@
     "BW": "None",
     "Loss": "None",
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "CANADG1",
@@ -1959,7 +1959,7 @@
     "BW": "None",
     "Loss": "None",
     "Jitter": "None",
-    "Status": 0
+    "Status": 1
   },
   {
     "Idx": "BRIDGER2",
@@ -1977,7 +1977,7 @@
     "BW": "None",
     "Loss": "None",
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "ADELANTO",
@@ -2337,7 +2337,7 @@
     "BW": "None",
     "Loss": "None",
     "Jitter": "None",
-    "Status": 0
+    "Status": 1
   },
   {
     "Idx": "STAF",
@@ -2517,7 +2517,7 @@
     "BW": "None",
     "Loss": "None",
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "BIGEDDY",
@@ -2643,7 +2643,7 @@
     "BW": "None",
     "Loss": "None",
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "COULEE",
@@ -2661,7 +2661,7 @@
     "BW": "None",
     "Loss": "None",
     "Jitter": "None",
-    "Status": 0
+    "Status": 1
   },
   {
     "Idx": "GARRISON",
@@ -2985,7 +2985,7 @@
     "BW": "None",
     "Loss": "None",
     "Jitter": "None",
-    "Status": 0
+    "Status": 1
   },
   {
     "Idx": "GRIZZLY5",
@@ -3309,7 +3309,7 @@
     "BW": "None",
     "Loss": "None",
     "Jitter": "None",
-    "Status": 0
+    "Status": 1
   },
   {
     "Idx": "OLINDA",
@@ -3633,7 +3633,7 @@
     "BW": "None",
     "Loss": "None",
     "Jitter": "None",
-    "Status": 0
+    "Status": 1
   },
   {
     "Idx": "TABLE2",
@@ -3957,7 +3957,7 @@
     "BW": "None",
     "Loss": "None",
     "Jitter": "None",
-    "Status": 0
+    "Status": 1
   },
   {
     "Idx": "MOHAVE",
@@ -4263,7 +4263,7 @@
     "BW": "None",
     "Loss": "None",
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "PINTO",
@@ -4839,7 +4839,7 @@
     "BW": 10,
     "Loss": 0,
     "Jitter": "None",
-    "Status": 0
+    "Status": 1
   },
   {
     "Idx": "S_BIGEDDY4",
@@ -4965,7 +4965,7 @@
     "BW": 10,
     "Loss": 0,
     "Jitter": "None",
-    "Status": 0
+    "Status": 1
   },
   {
     "Idx": "S_OLINDA",
@@ -5451,7 +5451,7 @@
     "BW": 10,
     "Loss": 0,
     "Jitter": "None",
-    "Status": 0
+    "Status": 1
   },
   {
     "Idx": "S_GRIZZLY5",
@@ -6135,7 +6135,7 @@
     "BW": 10,
     "Loss": 0,
     "Jitter": "None",
-    "Status": 0
+    "Status": 1
   },
   {
     "Idx": "S_SYLMARLA",
@@ -6207,7 +6207,7 @@
     "BW": 10,
     "Loss": 0,
     "Jitter": "None",
-    "Status": 0
+    "Status": 1
   },
   {
     "Idx": "S_HANFORD",
@@ -6639,7 +6639,7 @@
     "BW": 10,
     "Loss": 0,
     "Jitter": "None",
-    "Status": 0
+    "Status": 1
   },
   {
     "Idx": "S_TABLE2",
@@ -6729,7 +6729,7 @@
     "BW": 10,
     "Loss": 0,
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "S_CRAIG3",
@@ -6747,7 +6747,7 @@
     "BW": 10,
     "Loss": 0,
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "S_FOURCORN",
@@ -6765,7 +6765,7 @@
     "BW": 10,
     "Loss": 0,
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "S_FOURCORN3",
@@ -6783,7 +6783,7 @@
     "BW": 10,
     "Loss": 0,
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "S_FCNGN4CC",
@@ -6801,7 +6801,7 @@
     "BW": 10,
     "Loss": 0,
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "S_FOURCORN4",
@@ -6819,7 +6819,7 @@
     "BW": 10,
     "Loss": 0,
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "S_HAYDEN",
@@ -6837,7 +6837,7 @@
     "BW": 10,
     "Loss": 0,
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "S_SANJUAN",
@@ -6855,7 +6855,7 @@
     "BW": 10,
     "Loss": 0,
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "S_SJUANG4",
@@ -6873,7 +6873,7 @@
     "BW": 10,
     "Loss": 0,
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "S_FOURCOR1",
@@ -6891,7 +6891,7 @@
     "BW": 10,
     "Loss": 0,
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "S_FOURCOR2",
@@ -6909,7 +6909,7 @@
     "BW": 10,
     "Loss": 0,
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "S_BRIDGER2",
@@ -6927,7 +6927,7 @@
     "BW": 10,
     "Loss": 0,
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "S_MONTAG1",
@@ -6945,7 +6945,7 @@
     "BW": 10,
     "Loss": 0,
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "S_MONTANA",
@@ -6963,7 +6963,7 @@
     "BW": 10,
     "Loss": 0,
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "S_COLSTRP",
@@ -6981,7 +6981,7 @@
     "BW": 10,
     "Loss": 0,
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "S_PINTOPS",
@@ -6999,7 +6999,7 @@
     "BW": 10,
     "Loss": 0,
     "Jitter": "None",
-    "Status": 1
+    "Status": 0
   },
   {
     "Idx": "S_PINTO",
@@ -7215,7 +7215,7 @@
     "BW": 10,
     "Loss": 0,
     "Jitter": "None",
-    "Status": 0
+    "Status": 1
   },
   {
     "Idx": "S_SERRANO",
@@ -7503,7 +7503,7 @@
     "BW": 10,
     "Loss": 0,
     "Jitter": "None",
-    "Status": 0
+    "Status": 1
   },
   {
     "Idx": "S_NAVAJO22",
