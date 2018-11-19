@@ -136,7 +136,8 @@ class MiniPMU(object):
 
     def get_bus_name(self):
         """
-        Return bus names based on ``self.pmu_idx`` and store bus names to ``self.bus_name``
+        Return bus names based on ``self.pmu_idx`` and store bus names to
+        ``self.bus_name``
 
         :return: list of bus names
         """
@@ -227,7 +228,9 @@ class MiniPMU(object):
 
     @property
     def vgsvaridx(self):
-        return array(self.var_idx['vm'] + self.var_idx['am'] + self.var_idx['w'], dtype=int)
+        return array(self.var_idx['vm'] +
+                     self.var_idx['am'] +
+                     self.var_idx['w'], dtype=int)
 
     def init_storage(self, flush=False):
         """
@@ -239,15 +242,18 @@ class MiniPMU(object):
 
         if self.count % self.max_store == 0:
             self.t = zeros(shape=(self.max_store, 1), dtype=float)
-            self.data = zeros(shape=(self.max_store, len(self.pmu_idx * 3)), dtype=float)
+            self.data = zeros(shape=(self.max_store, len(self.pmu_idx * 3)),
+                              dtype=float)
             self.count = 0
             ret = True
         else:
             ret = False
 
         if (self.count_record % self.max_store_record == 0) or (flush is True):
-            self.t_record = zeros(shape=(self.max_store_record, 1), dtype=float)
-            self.data_record = zeros(shape=(self.max_store_record, len(self.pmu_idx * 3)), dtype=float)
+            self.t_record = zeros(shape=(self.max_store_record, 1),
+                                  dtype=float)
+            self.data_record = zeros(shape=(self.max_store_record,
+                                     len(self.pmu_idx * 3)), dtype=float)
             self.count_record = 0
             self.counter_replay = 0
 
@@ -271,7 +277,8 @@ class MiniPMU(object):
             return ret
 
         if self.reset is True:
-            logger.info('[{name}] variable <{var}> synced.'.format(name=self.name, var=var))
+            logger.info('[{name}] variable <{var}> synced.'
+                        .format(name=self.name, var=var))
 
         data = self.dimec.workspace[var]
 
@@ -304,11 +311,14 @@ class MiniPMU(object):
             cmd = ''
             if data.get('record', 0) == 1:
                 # start recording
-                if self.record_state == RecordState.IDLE or self.record_state == RecordState.RECORDED:
+                if self.record_state == RecordState.IDLE \
+                        or self.record_state == RecordState.RECORDED:
+
                     self.record_state = RecordState.RECORDING
                     cmd = 'start recording'
                 else:
-                    logger.warning('cannot start recording in state {}'.format(self.record_state))
+                    logger.warning('cannot start recording in state {}'
+                                   .format(self.record_state))
 
             elif data.get('record', 0) == 2:
                 # stop recording if started
@@ -316,7 +326,8 @@ class MiniPMU(object):
                     cmd = 'stop recording'
                     self.record_state = RecordState.RECORDED
                 else:
-                    logger.warning('cannot stop recording in state {}'.format(self.record_state))
+                    logger.warning('cannot stop recording in state {}'
+                                   .format(self.record_state))
 
             if data.get('replay', 0) == 1:
                 # start replay
@@ -324,14 +335,16 @@ class MiniPMU(object):
                     cmd = 'start replay'
                     self.record_state = RecordState.REPLAYING
                 else:
-                    logger.warning('cannot start replaying in state {}'.format(self.record_state))
+                    logger.warning('cannot start replaying in state {}'
+                                   .format(self.record_state))
             if data.get('replay', 0) == 2:
                 # stop replay but retain the saved data
                 if self.record_state == RecordState.REPLAYING:
                     cmd = 'stop replay'
                     self.record_state = RecordState.RECORDED
                 else:
-                    logger.warning('cannot stop replaying in state {}'.format(self.record_state))
+                    logger.warning('cannot stop replaying in state {}'
+                                   .format(self.record_state))
             if data.get('flush', 0) == 1:
                 # flush storage
                 cmd = 'flush storage'
@@ -342,7 +355,8 @@ class MiniPMU(object):
                 logger.info('[{name}] <{cmd}>'.format(name=self.name, cmd=cmd))
 
         else:
-            logger.info('[{name}] {cmd} not handled during normal ops'.format(name=self.name, cmd=var))
+            logger.info('[{name}] {cmd} not handled during normal ops'
+                        .format(name=self.name, cmd=var))
 
         return var
 
@@ -360,7 +374,9 @@ class MiniPMU(object):
 
         # record
         if self.record_state == RecordState.RECORDING:
-            self.data_record[self.count_record, :] = data['vars'][0, self.vgsvaridx].reshape(-1)
+            self.data_record[self.count_record, :] = \
+                    data['vars'][0, self.vgsvaridx].reshape(-1)
+
             self.t_record[self.count_record, :] = data['t']
             self.count_record += 1
 
@@ -381,7 +397,8 @@ class MiniPMU(object):
 
             if self.reset is True:
                 # receive init and respond
-                logger.info('[{name}] Entering reset mode...'.format(name=self.name))
+                logger.info('[{name}] Entering reset mode..'
+                            .format(name=self.name))
 
                 while True:
                     var = self.sync_and_handle()
@@ -476,13 +493,18 @@ def wrap_angle(a):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-n', '--name', default='MiniPMU', help='PMU instance name', type=str)
-    parser.add_argument('-a', '--dime_address', default='tcp://192.168.1.200:5000', help='DiME server address')
-    parser.add_argument('--fn', default=60, help='nominal frequency (Hz)', type=int)
+    parser.add_argument('-n', '--name', default='MiniPMU',
+                        help='PMU instance name', type=str)
+    parser.add_argument('-a', '--dime_address',
+                        default='tcp://192.168.1.200:5000',
+                        help='DiME server address')
+    parser.add_argument('--fn', default=60,
+                        help='nominal frequency (Hz)', type=int)
     parser.add_argument('--vn', default=1, help='voltage base (kV)')
     parser.add_argument('--noise', default=0, help='noise level', type=int)
     parser.add_argument('pmu_port', help='PMU TCP/IP port', type=int)
-    parser.add_argument('pmu_idx', help='PMU indices from ANDES in list', type=str)
+    parser.add_argument('pmu_idx',
+                        help='PMU indices from ANDES in list', type=str)
 
     args = parser.parse_args()
     args = vars(args)
