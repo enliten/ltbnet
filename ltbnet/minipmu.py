@@ -132,7 +132,6 @@ class MiniPMU(object):
 
         :return: None
         """
-
         pass
 
     def get_bus_name(self):
@@ -272,7 +271,7 @@ class MiniPMU(object):
             return ret
 
         if self.reset is True:
-            logger.debug('variable <{}> synced.'.format(var))
+            logger.info('[{name}] variable <{var}> synced.'.format(name=self.name, var=var))
 
         data = self.dimec.workspace[var]
 
@@ -287,7 +286,7 @@ class MiniPMU(object):
         elif var == 'pmudata':
             # only handle pmudata during normal cycle
             if self.reset is False:
-                logger.info('In, t={:.4f}'.format(data['t']))
+                # logger.info('In, t={:.4f}'.format(data['t']))
                 self.handle_measurement_data(data)
             else:
                 logger.info('{} not handled during reset cycle'.format(var))
@@ -309,7 +308,7 @@ class MiniPMU(object):
                     self.record_state = RecordState.RECORDING
                     cmd = 'start recording'
                 else:
-                    logging.warning('cannot start recording in state {}'.format(self.record_state))
+                    logger.warning('cannot start recording in state {}'.format(self.record_state))
 
             elif data.get('record', 0) == 2:
                 # stop recording if started
@@ -317,7 +316,7 @@ class MiniPMU(object):
                     cmd = 'stop recording'
                     self.record_state = RecordState.RECORDED
                 else:
-                    logging.warning('cannot stop recording in state {}'.format(self.record_state))
+                    logger.warning('cannot stop recording in state {}'.format(self.record_state))
 
             if data.get('replay', 0) == 1:
                 # start replay
@@ -325,8 +324,14 @@ class MiniPMU(object):
                     cmd = 'start replay'
                     self.record_state = RecordState.REPLAYING
                 else:
-                    logging.warning('cannot start replaying in state {}'.format(self.record_state))
-
+                    logger.warning('cannot start replaying in state {}'.format(self.record_state))
+            if data.get('replay', 0) == 2:
+                # stop replay but retain the saved data
+                if self.record_state == RecordState.REPLAYING:
+                    cmd = 'stop replay'
+                    self.record_state = RecordState.RECORDED
+                else:
+                    logger.warning('cannot stop replaying in state {}'.format(self.record_state))
             if data.get('flush', 0) == 1:
                 # flush storage
                 cmd = 'flush storage'
@@ -334,10 +339,10 @@ class MiniPMU(object):
                 self.record_state = RecordState.IDLE
 
             if cmd:
-                logger.info('command received, {}'.format(cmd))
+                logger.info('[{name}] <{cmd}>'.format(name=self.name, cmd=cmd))
 
         else:
-            logger.info('{} not handled during normal ops'.format(var))
+            logger.info('[{name}] {cmd} not handled during normal ops'.format(name=self.name, cmd=var))
 
         return var
 
@@ -376,7 +381,7 @@ class MiniPMU(object):
 
             if self.reset is True:
                 # receive init and respond
-                logger.debug('Entering reset mode...')
+                logger.info('[{name}] Entering reset mode...'.format(name=self.name))
 
                 while True:
                     var = self.sync_and_handle()
@@ -384,12 +389,14 @@ class MiniPMU(object):
                     if var is False:
                         time.sleep(0.01)
 
-                    if len(self.Varheader) > 0 and len(self.Idxvgs) > 0 and len(self.SysParam) > 0:
+                    if len(self.Varheader) > 0\
+                            and len(self.Idxvgs) > 0\
+                            and len(self.SysParam) > 0 \
+                            and len(self.SysName) > 0:
+
                         self.find_var_idx()
                         self.get_bus_Vn()
 
-                        # attemp to sync SysName
-                        var = self.sync_and_handle()
                         break
 
                 self.respond_to_sim()
@@ -439,7 +446,7 @@ class MiniPMU(object):
                                            freq= v_freq
                                            )
 
-                        logger.info('Out, f={f:.5f}, vm={vm:.1f}, am={am:.2f}'.format(f=v_freq[0], vm=v_mag[0], am=v_ang[0]))
+                        # logger.info('Out, f={f:.5f}, vm={vm:.1f}, am={am:.2f}'.format(f=v_freq[0], vm=v_mag[0], am=v_ang[0]))
 
                     except Exception as e:
                         logger.exception(e)
@@ -470,7 +477,7 @@ def wrap_angle(a):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-n', '--name', default='MiniPMU', help='PMU instance name', type=str)
-    parser.add_argument('-a', '--dime_address', default='ipc:///tmp/dime', help='DiME server address')
+    parser.add_argument('-a', '--dime_address', default='tcp://192.168.1.200:5000', help='DiME server address')
     parser.add_argument('--fn', default=60, help='nominal frequency (Hz)', type=int)
     parser.add_argument('--vn', default=1, help='voltage base (kV)')
     parser.add_argument('--noise', default=0, help='noise level', type=int)

@@ -1,6 +1,8 @@
 import sys
 import re
 import json
+import time
+
 from mininet.topo import Topo
 from mininet.link import Intf
 
@@ -344,7 +346,8 @@ class PMU(Record):
                                           )
 
             node.popen(call_str)
-            log.info('{name} idx={idx} started'.format(name=pmu_name, idx=pmu_idx))
+            log.info('{name} idx={idx} started\n'.format(name=pmu_name, idx=pmu_idx))
+            time.sleep(0.02)
 
 
 class PDC(Record):
