@@ -79,7 +79,7 @@ class MiniPMU(object):
         self.dimec = Dime(self.name, self.dime_address)
         self.pmu = Pmu(ip=pmu_ip, port=pmu_port)
 
-    def reset_var(self):
+    def reset_var(self, retain_data=False):
         """
         Reset flags and memory
         :return: None
@@ -107,15 +107,15 @@ class MiniPMU(object):
         self.count = 0
 
         # recording storage
-        self.t_record = ndarray([])
-        self.data_record = ndarray([])
-        self.count_record = 0
-        self.counter_replay = 0  # replay index into `data_record` and `t_record`
+        if not retain_data:
+            self.t_record = ndarray([])
+            self.data_record = ndarray([])
+            self.count_record = 0
+            self.counter_replay = 0  # replay index into `data_record` and `t_record`
+            self.record_state = RecordState.IDLE
 
         self.last_data = None
         self.last_t = None
-
-        self.record_state = RecordState.IDLE
 
     def start_dime(self):
         """
@@ -195,7 +195,7 @@ class MiniPMU(object):
                            ph_units=[(0, 'v')],  # Conversion factor for phasor channels - (float representation, not important)
                            an_units=[(1, 'pow')],  # Conversion factor for analog channels
                            dig_units=[(0x0000, 0xffff)],  # Mask words for digital status words
-                           f_nom=60,  # Nominal frequency
+                           f_nom=60.0,  # Nominal frequency
                            cfg_count=1,  # Configuration change count
                            data_rate=30)  # Rate of phasor data transmission)
 
@@ -305,7 +305,7 @@ class MiniPMU(object):
 
         elif var == 'DONE' and data == 1:
             self.reset = True
-            self.reset_var()
+            self.reset_var(retain_data=True)
 
         elif var == 'pmucmd' and isinstance(data, dict):
             cmd = ''
@@ -445,6 +445,7 @@ class MiniPMU(object):
 
                         # at the end of replay, reset
                         if self.counter_replay == self.count_record:
+                            self.counter_replay = 0
                             self.record_state = RecordState.RECORDED
 
                     else:
@@ -460,7 +461,8 @@ class MiniPMU(object):
                         self.pmu.send_data(phasors=[(v_mag, v_ang)],
                                            analog=[9.99],
                                            digital=[0x0001],
-                                           freq= v_freq
+                                           #freq=(v_freq-60)*1000
+                                           freq = v_freq
                                            )
 
                         # logger.info('Out, f={f:.5f}, vm={vm:.1f}, am={am:.2f}'.format(f=v_freq[0], vm=v_mag[0], am=v_ang[0]))
