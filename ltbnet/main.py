@@ -41,9 +41,9 @@ def main(*args, **kwargs):
     network.PMU.run_pmu(net)
     CLI(net)
 
-    net.stop()
     print('Stopping MiniPMUs - enter your root password if prompted')
     os.system("sudo pkill minipmu")
+    net.stop()
 
 
 def clean(*args, **kwargs):

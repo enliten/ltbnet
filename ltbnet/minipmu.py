@@ -68,7 +68,7 @@ class MiniPMU(object):
         self.max_store = max_store
 
         # for recording
-        self.max_store_record = 30 * 2000  # 2000 seconds
+        self.max_store_record = 30 * 600  # 600 seconds
 
         self.reset = True
         self.pmu_configured = False
