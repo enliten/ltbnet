@@ -204,7 +204,7 @@ class MiniPMU(object):
 
         self.pmu.set_configuration(self.cfg)
         self.pmu.set_header(self.hf)
-        self.pmu.run()
+        # self.pmu.run()
 
     def find_var_idx(self):
         """
@@ -392,6 +392,7 @@ class MiniPMU(object):
         :return None
         """
         self.start_dime()
+        self.pmu.run()
 
         while True:
 
