@@ -4,13 +4,25 @@ for header message, configuration and eventually
 to start sending measurements.
 """
 
+
 from synchrophasor.pdc import Pdc
 from synchrophasor.frame import DataFrame, HeaderFrame, ConfigFrame1, ConfigFrame2, ConfigFrame3
 from multiprocessing import Process, Pipe, Queue
+
 import time
-import numpy as np
 import logging
+
+import numpy as np
+import matplotlib.pyplot as plt
+
 from andes_addon.dime import Dime
+
+h1, = plt.plot([], [])
+h2, = plt.plot([], [])
+
+ca = plt.gca()
+plt.ion()
+plt.show()
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -24,8 +36,9 @@ logger.addHandler(fh)
 dimec = Dime('ISLANDING', 'tcp://192.168.1.200:5000')
 
 ISLANDING = {'vgsvaridx': np.array([1, 2] )}
-ISLANDING_idx = {'fdev': np.array([1])}
-ISLANDING_header = ['fdev_WECC']
+ISLANDING_idx = {'fdev': np.array([1]), 'thresh': np.array([2])}
+ISLANDING_vars = {'t': 0, 'vars': np.array([0, 0.4])}
+ISLANDING_header = ['fdev_WECC', 'thresh_WECC']
 ISLANDING_info = ''
 
 
@@ -135,6 +148,10 @@ class Islanding(MiniPDC):
         self.result_dict = {}
         self.freq = {}
         self.freq_diff = 0
+
+        self.freq_diff_array = np.array([0, 0.4])
+        self.t_array = np.array([0])
+
         self.time_detect = 0
         self.detected = False
         self.islanded = False
@@ -164,12 +181,23 @@ class Islanding(MiniPDC):
             val = self.dimec.workspace[self.last_var]
             if val is not None:
                 self.andes_online = True
-                self.dimec.broadcast('ISLANDING', ISLANDING)
+                self.dimec.send_var('sim','ISLANDING', ISLANDING)
                 self.dimec.broadcast('ISLANDING_idx', ISLANDING_idx)
                 self.dimec.broadcast('ISLANDING_header', ISLANDING_header)
             self.initialize()
 
         return self.last_var
+
+    def update_draw(self, xdata, ydata):
+        h1.set_data(xdata, ydata[:, 0])
+        h2.set_data(xdata, ydata[:, 1])
+
+        ca.relim()
+        ca.autoscale_view()
+
+        plt.draw()
+        plt.pause(0.00001)
+        plt.show()
 
     def run(self):
         super(Islanding, self).run()
@@ -185,6 +213,7 @@ class Islanding(MiniPDC):
                 continue
             else:
                 if len(self.config) == 0:
+                    time.sleep(0.4)
                     self.init_pdc()
                     self.get_header_config()
 
@@ -226,26 +255,40 @@ class Islanding(MiniPDC):
 
             # detect frequency deviation
 
-            if (not self.detected) and (not self.islanded):
+            if len(self.freq) == 0:
+                continue
+            self.freq_diff = (max(self.freq.values()) - min(self.freq.values()))
+            # print('Frequency difference = {}'.format(self.freq_diff))
 
-                if len(self.freq) == 0:
-                    continue
-
-                self.freq_diff = (max(self.freq.values()) - min(self.freq.values()))
-                print('Frequency difference = {}'.format(self.freq_diff))
-
+            if self.detected is False:
                 if self.freq_diff >= 0.4:
                     # record the *initial* time when frequency divergence is detected
                     self.detected = True
                     self.time_detect = time.time()
-                    print('--> Frequency divergence detected. Islanding will happen in {}'.format(self.islanding_delay))
+                    print('--> Frequency divergence detected. Islanding will happen in {}s'.format(self.islanding_delay))
 
             # impose a delay before islanding by comparing time() and time_detect
+
             elif self.detected and (not self.islanded):
                 if time.time() - self.time_detect >= self.islanding_delay:
                     self.dimec.send_var('sim', 'Event', self.event)
                     print('--> Islanding initiated!!!')
                     self.islanded = True
+
+            if sf == 'Varvgs':
+                self.freq_diff_array = np.vstack((self.freq_diff_array,
+                                                  np.array([[self.freq_diff, 0.4
+                                                          ]]))
+                          )
+                self.t_array = np.hstack((self.t_array, self.dimec.workspace[sf]['t']))
+
+                self.update_draw(self.t_array, self.freq_diff_array)
+
+                ISLANDING_vars['t'] = self.dimec.workspace[sf]['t']
+                ISLANDING_vars['vars'][0] = self.freq_diff
+                self.dimec.send_var('geovis', 'ISLANDING_vars', ISLANDING_vars)
+                # print('ISLANDING_vars df={df} sent to geovis at t={t}'.format(df=self.freq_diff,
+                #                                                               t=ISLANDING_vars['t']))
 
 
 def run():
@@ -268,161 +311,3 @@ def run():
 
 if __name__ == '__main__':
     run()
-
-
-# try:
-#     dimec.exit()
-# except:
-#     pass
-#
-# dimec.start()
-#
-# iplist = []
-# iplist.append('192.168.1.1')
-# iplist.append('192.168.1.19')
-# iplist.append('192.168.1.34')
-# iplist.append('192.168.1.55')
-# iplist.append('192.168.1.73')
-# iplist.append('192.168.1.91')
-# iplist.append('192.168.1.109')
-# iplist.append('192.168.1.127')
-# iplist.append('192.168.1.145')
-# iplist.append('192.168.1.163')
-# npmu = len(iplist)
-#
-# # ISLANDING event line trips
-# event = {'id': [143, 146, 135],
-#          'name': ['Line', 'Line', 'Line'],
-#          'time': [-1, -1, -1],
-#          'duration': [0, 0, 0],
-#          'action': [0, 0, 0]
-#          }
-#
-# islanding_delay = 7
-# andes_online = True
-#
-# # data structure reset for each new run
-#
-# result_queue = [Queue() for x in range(npmu)]
-#
-# # start data acquisition processes
-# result_dict = {}
-# time_detect = 0
-# detected = False
-# islanded = False
-#
-#
-# def sync_and_handle(dimec):
-#     """ Sync from DiME and handle the received data
-#     """
-#     var = dimec.sync(1)
-#     val = None
-#
-#     if var not in (None, False):
-#         val = dimec.workspace[var]
-#     else:
-#         return
-#
-#     if var == 'SysParam' and val is not None:
-#         andes_online = True
-#         dimec.broadcast('ISLANDING', ISLANDING)
-#         dimec.broadcast('ISLANDING_idx', ISLANDING_idx)
-#         dimec.broadcast('ISLANDING_header', ISLANDING_header)
-#
-#         # clean data and reset status
-#         result_queue = [Queue() for x in range(npmu)]
-#
-#         # start data acquisition processes
-#         result_dict = {}
-#         time_detect = 0
-#         detected = False
-#         islanded = False
-#
-#     elif var == 'DONE' and int(val) == 1:
-#         andes_online = False
-#
-#
-# if __name__ == "__main__":
-#     pdc = dict()
-#     header = dict()
-#     config = dict()
-#     freq = dict()
-#
-#     # while True:
-#     #     dimec.send_var('sim', 'Event', event)
-#
-#
-#     for idx, item in enumerate(iplist):
-#         pmu_idx = int(iplist[idx].split('.')[3])
-#
-#         pdc[idx] = Pdc(pdc_id=pmu_idx,
-#                        pmu_ip=iplist[idx],
-#                        pmu_port=1410)
-#
-#         pdc[idx].logger.setLevel("INFO")
-#
-#     for idx, item in pdc.items():  # each item is a PDC
-#
-#         item.run()   # Connect to PMU
-#
-#         header[idx] = item.get_header()
-#         config[idx] = item.get_config()
-#
-#     for idx, item in pdc.items():  # each item is a PDC
-#         item.start()  # Request to start sending measurements
-#
-#     # create result queues
-#
-#     print('PDC-based system separation control geared up')
-#
-#     while True:
-#
-#         # only start if ANDES is connected
-#         if andes_online is False:
-#             continue
-#
-#         # retrieve all measurements from the PDCs
-#         for idx, item in pdc.items():
-#             item.get_msg(result_queue[idx])
-#
-#         # for each PDC, retrieve the frequency
-#         for idx, item in enumerate(result_queue):
-#             result_dict[idx] = item.get()
-#             if result_dict[idx] is None:
-#                 freq[idx] = 60  # TODO: fix
-#                 continue
-#
-#             if isinstance(result_dict[idx], DataFrame):
-#                 measurements = result_dict[idx].get_measurements()
-#             else:
-#                 print('ignored {} data'.format(type(result_dict[idx])))
-#                 continue
-#
-#             if isinstance(measurements, dict):
-#                 freq[idx] = (measurements['measurements'][0]['frequency']-60) * 1000
-#             else:
-#                 print('Unknown measurement type {}, continue'.format(type(measurements)))
-#                 continue
-#
-#         # detect frequency deviation
-#
-#         if (not detected) and (not islanded):
-#
-#             if len(freq) == 0:
-#                 continue
-#
-#             freq_diff = (max(freq.values())-min(freq.values()))
-#             print('Frequency difference = {}'.format(freq_diff))
-#
-#             if freq_diff >= 0.4:
-#                 # record the *initial* time when frequency divergence is detected
-#                 detected = True
-#                 time_detect = time.time()
-#                 print('--> Frequency divergence detected. Islanding will happen in {}'.format(islanding_delay))
-#
-#         # impose a delay before islanding by comparing time() and time_detect
-#         elif detected and (not islanded):
-#             if (time.time() - time_detect >= islanding_delay):
-#                 dimec.send_var('sim', 'Event', event)
-#                 print('--> Islanding initiated!!!')
-#                 islanded = True

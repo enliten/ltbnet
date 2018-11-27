@@ -17,13 +17,13 @@ from synchrophasor.pmu import Pmu
 from synchrophasor.frame import ConfigFrame2, HeaderFrame
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.WARNING)
 
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(message)s')
 
-fh = logging.FileHandler('/var/log/minipmu.log')
-fh.setFormatter(formatter)
-logger.addHandler(fh)
+# fh = logging.FileHandler('/var/log/minipmu.log')
+# fh.setFormatter(formatter)
+# logger.addHandler(fh)
 
 # ---- logging to console blocks MiniPMU when if in Mininet
 # console = logging.StreamHandler()
@@ -226,6 +226,7 @@ class MiniPMU(object):
         self.var_idx['am'] = [npmu + int(i) - 1 for i in self.pmu_idx]
         self.var_idx['w'] = [2 * npmu + int(i) - 1 for i in self.pmu_idx]
 
+    # TODO: make it static
     @property
     def vgsvaridx(self):
         return array(self.var_idx['vm'] +
@@ -238,6 +239,7 @@ class MiniPMU(object):
 
         :return: if the storage has been reset
         """
+        # TODO: make it more efficient??
         ret = False
 
         if self.count % self.max_store == 0:
