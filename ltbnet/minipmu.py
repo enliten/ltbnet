@@ -19,7 +19,7 @@ from synchrophasor.frame import ConfigFrame2, HeaderFrame
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(message)s')
+# formatter = logging.Formatter('%(asctime)s - %(name)s - %(message)s')
 
 # fh = logging.FileHandler('/var/log/minipmu.log')
 # fh.setFormatter(formatter)
@@ -397,7 +397,6 @@ class MiniPMU(object):
         self.pmu.run()
 
         while True:
-
             if self.reset is True:
                 # receive init and respond
                 # logger.info('[{name}] Entering reset mode..'

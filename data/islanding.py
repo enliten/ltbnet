@@ -18,10 +18,16 @@ import matplotlib.pyplot as plt
 
 from andes_addon.dime import Dime
 
-h1, = plt.plot([], [])
-h2, = plt.plot([], [])
+h1, = plt.plot([], [], linewidth=6, label='Frequency Deviation')
+h2, = plt.plot([], [], linewidth=6, label='Separation Threshold')
+mng = plt.get_current_fig_manager()
+mng.full_screen_toggle()
 
 ca = plt.gca()
+ca.legend(fontsize=30)
+ca.xaxis.set_tick_params(labelsize=30)
+ca.yaxis.set_tick_params(labelsize=30)
+
 plt.ion()
 plt.show()
 plt.pause(0.1)
@@ -304,16 +310,16 @@ class Islanding(MiniPDC):
 
 
 def run():
-    ip_list = ['192.168.1.1',
-               '192.168.1.19',
+    ip_list = [#'192.168.1.1',
+               #'192.168.1.19',
                '192.168.1.34',
                '192.168.1.55',
-               '192.168.1.73',
-               '192.168.1.91',
-               '192.168.1.109',
-               '192.168.1.127',
-               '192.168.1.145',
-               '192.168.1.163',
+               #'192.168.1.73',
+               #'192.168.1.91',
+               #'192.168.1.109',
+               #'192.168.1.127',
+               #'192.168.1.145',
+               #'192.168.1.163',
                ]
     islanding = Islanding(name='ISLANDING',
                           dime_address='tcp://192.168.1.200:5000',
