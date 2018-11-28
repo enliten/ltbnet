@@ -121,10 +121,10 @@ class MiniPMU(object):
         """
         Starts the dime client stored in `self.dimec`
         """
-        logger.info('Connecting to server at {}'.format(self.dime_address))
+        # logger.info('Connecting to server at {}'.format(self.dime_address))
         assert self.dimec.start()
 
-        logger.info('DiME client connected')
+        # logger.info('DiME client connected')
 
     def respond_to_sim(self):
         """
@@ -153,7 +153,7 @@ class MiniPMU(object):
             for i in range(len(self.bus_name)):
                 self.bus_name[i] = self.SysName['Bus'][self.pmu_idx[i] - 1]
 
-        logger.debug('PMU names changed to: {}'.format(self.bus_name))
+        # logger.debug('PMU names changed to: {}'.format(self.bus_name))
         return self.bus_name
 
     def get_bus_Vn(self):
@@ -169,7 +169,7 @@ class MiniPMU(object):
         for i, idx in enumerate(self.pmu_idx):
             self.Vn[i] = self.SysParam['Bus'][idx][1] * 1000  # get Vn
 
-        logger.info('Retrieved bus Vn {}'.format(self.Vn))
+        # logger.info('Retrieved bus Vn {}'.format(self.Vn))
 
     def config_pmu(self):
         """
@@ -278,9 +278,9 @@ class MiniPMU(object):
         if var is False or None:
             return ret
 
-        if self.reset is True:
-            logger.info('[{name}] variable <{var}> synced.'
-                        .format(name=self.name, var=var))
+        # if self.reset is True:
+        #     logger.info('[{name}] variable <{var}> synced.'
+        #                 .format(name=self.name, var=var))
 
         data = self.dimec.workspace[var]
 
@@ -289,16 +289,16 @@ class MiniPMU(object):
 
             if self.reset is True:
                 self.__dict__[var] = data
-            else:
-                logger.info('{} not handled outside reset cycle'.format(var))
+            # else:
+            #     logger.info('{} not handled outside reset cycle'.format(var))
 
         elif var == 'pmudata':
             # only handle pmudata during normal cycle
             if self.reset is False:
                 # logger.info('In, t={:.4f}'.format(data['t']))
                 self.handle_measurement_data(data)
-            else:
-                logger.info('{} not handled during reset cycle'.format(var))
+            # else:
+            #     logger.info('{} not handled during reset cycle'.format(var))
 
         # handle SysName any time
         elif var == 'SysName':
@@ -318,47 +318,47 @@ class MiniPMU(object):
 
                     self.record_state = RecordState.RECORDING
                     cmd = 'start recording'
-                else:
-                    logger.warning('cannot start recording in state {}'
-                                   .format(self.record_state))
+                # else:
+                #     logger.warning('cannot start recording in state {}'
+                #                    .format(self.record_state))
 
             elif data.get('record', 0) == 2:
                 # stop recording if started
                 if self.record_state == RecordState.RECORDING:
                     cmd = 'stop recording'
                     self.record_state = RecordState.RECORDED
-                else:
-                    logger.warning('cannot stop recording in state {}'
-                                   .format(self.record_state))
+                # else:
+                #     logger.warning('cannot stop recording in state {}'
+                #                    .format(self.record_state))
 
             if data.get('replay', 0) == 1:
                 # start replay
                 if self.record_state == RecordState.RECORDED:
                     cmd = 'start replay'
                     self.record_state = RecordState.REPLAYING
-                else:
-                    logger.warning('cannot start replaying in state {}'
-                                   .format(self.record_state))
+                # else:
+                #     logger.warning('cannot start replaying in state {}'
+                #                    .format(self.record_state))
             if data.get('replay', 0) == 2:
                 # stop replay but retain the saved data
                 if self.record_state == RecordState.REPLAYING:
                     cmd = 'stop replay'
                     self.record_state = RecordState.RECORDED
-                else:
-                    logger.warning('cannot stop replaying in state {}'
-                                   .format(self.record_state))
+                # else:
+                #     logger.warning('cannot stop replaying in state {}'
+                #                    .format(self.record_state))
             if data.get('flush', 0) == 1:
                 # flush storage
                 cmd = 'flush storage'
                 self.init_storage(flush=True)
                 self.record_state = RecordState.IDLE
 
-            if cmd:
-                logger.info('[{name}] <{cmd}>'.format(name=self.name, cmd=cmd))
+            # if cmd:
+            #     logger.info('[{name}] <{cmd}>'.format(name=self.name, cmd=cmd))
 
-        else:
-            logger.info('[{name}] {cmd} not handled during normal ops'
-                        .format(name=self.name, cmd=var))
+        # else:
+        #     logger.info('[{name}] {cmd} not handled during normal ops'
+        #                 .format(name=self.name, cmd=var))
 
         return var
 
@@ -400,8 +400,8 @@ class MiniPMU(object):
 
             if self.reset is True:
                 # receive init and respond
-                logger.info('[{name}] Entering reset mode..'
-                            .format(name=self.name))
+                # logger.info('[{name}] Entering reset mode..'
+                #             .format(name=self.name))
 
                 while True:
                     var = self.sync_and_handle()

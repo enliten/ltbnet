@@ -6,8 +6,9 @@ to start sending measurements.
 
 
 from synchrophasor.pdc import Pdc
-from synchrophasor.frame import DataFrame, HeaderFrame, ConfigFrame1, ConfigFrame2, ConfigFrame3
-from multiprocessing import Process, Pipe, Queue
+from synchrophasor.frame import DataFrame, HeaderFrame, \
+        ConfigFrame1, ConfigFrame2, ConfigFrame3
+from multiprocessing import Queue
 
 import time
 import logging
@@ -23,6 +24,7 @@ h2, = plt.plot([], [])
 ca = plt.gca()
 plt.ion()
 plt.show()
+plt.pause(0.1)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -35,7 +37,7 @@ logger.addHandler(fh)
 
 dimec = Dime('ISLANDING', 'tcp://192.168.1.200:5000')
 
-ISLANDING = {'vgsvaridx': np.array([1, 2] )}
+ISLANDING = {'vgsvaridx': np.array([1, 2])}
 ISLANDING_idx = {'fdev': np.array([1]), 'thresh': np.array([2])}
 ISLANDING_vars = {'t': 0, 'vars': np.array([0, 0.4])}
 ISLANDING_header = ['fdev_WECC', 'thresh_WECC']
@@ -45,7 +47,8 @@ ISLANDING_info = ''
 class MiniPDC(object):
     """A MiniPDC connecting to multiple PMUs and a DiME server
     """
-    def __init__(self, name, dime_address, ip_list, port_list=None, loglevel=logging.INFO):
+    def __init__(self, name, dime_address, ip_list, port_list=None,
+                 loglevel=logging.INFO):
         self._name = name
         self._dime_address = dime_address
         self._loglevel = loglevel
@@ -92,14 +95,16 @@ class MiniPDC(object):
         if self.last_var == 'DONE' and int(val) == 1:
             self.andes_online = False
             self.initialize()
+            pass
         return self.last_var
 
     def start_dime(self):
+        logger.info('Connecting to DiME at {}'.format(self._dime_address))
+        self.dimec.start()
         try:
             self.dimec.exit()
         except:
             pass
-        logger.info('Connecting to DiME at {}'.format(self._dime_address))
         self.dimec.start()
         logger.info('DiME connected')
 
@@ -109,8 +114,8 @@ class MiniPDC(object):
             pmu_idx = int(item.split('.')[3])
 
             self.pdc[idx] = Pdc(pdc_id=pmu_idx,
-                               pmu_ip=self.ip_list[idx],
-                               pmu_port=1410)
+                                pmu_ip=self.ip_list[idx],
+                                pmu_port=1410)
 
             self.pdc[idx].logger.setLevel("INFO")
         logger.info('PDC initialized')
@@ -181,22 +186,24 @@ class Islanding(MiniPDC):
             val = self.dimec.workspace[self.last_var]
             if val is not None:
                 self.andes_online = True
-                self.dimec.send_var('sim','ISLANDING', ISLANDING)
-                self.dimec.broadcast('ISLANDING_idx', ISLANDING_idx)
-                self.dimec.broadcast('ISLANDING_header', ISLANDING_header)
+                self.dimec.send_var('sim', 'ISLANDING', ISLANDING)
+                # self.dimec.broadcast('ISLANDING_idx', ISLANDING_idx)
+                # self.dimec.broadcast('ISLANDING_header', ISLANDING_header)
             self.initialize()
-
+        elif self.last_var == 'Varvgs':
+            print(self.dimec.workspace['Varvgs']['t'])
         return self.last_var
 
     def update_draw(self, xdata, ydata):
-        h1.set_data(xdata, ydata[:, 0])
-        h2.set_data(xdata, ydata[:, 1])
+        # TODO: remove the *2 in xdata
+        h1.set_data(xdata * 2, ydata[:, 0])
+        h2.set_data(xdata * 2, ydata[:, 1])
 
         ca.relim()
         ca.autoscale_view()
 
         plt.draw()
-        plt.pause(0.00001)
+        plt.pause(0.0001)
         plt.show()
 
     def run(self):
@@ -213,7 +220,7 @@ class Islanding(MiniPDC):
                 continue
             else:
                 if len(self.config) == 0:
-                    time.sleep(0.4)
+                    time.sleep(0.5)
                     self.init_pdc()
                     self.get_header_config()
 
@@ -227,7 +234,7 @@ class Islanding(MiniPDC):
                 self.result_dict[idx] = item.get()
 
                 if self.result_dict[idx] is None:
-                    self.freq[idx] = 60  # TODO: fix
+                    self.freq[idx] = 60
                     continue
 
                 frame = self.result_dict[idx]
@@ -257,8 +264,13 @@ class Islanding(MiniPDC):
 
             if len(self.freq) == 0:
                 continue
-            self.freq_diff = (max(self.freq.values()) - min(self.freq.values()))
-            # print('Frequency difference = {}'.format(self.freq_diff))
+
+            self.freq_diff = max(self.freq.values()) - min(self.freq.values())
+            if abs(self.freq_diff) < 1:
+                print('Frequency difference = {}'.format(self.freq_diff))
+            else:
+                self.freq_diff = 0
+                continue
 
             if self.detected is False:
                 if self.freq_diff >= 0.4:
@@ -286,7 +298,7 @@ class Islanding(MiniPDC):
 
                 ISLANDING_vars['t'] = self.dimec.workspace[sf]['t']
                 ISLANDING_vars['vars'][0] = self.freq_diff
-                self.dimec.send_var('geovis', 'ISLANDING_vars', ISLANDING_vars)
+                # self.dimec.send_var('geovis', 'ISLANDING_vars', ISLANDING_vars)
                 # print('ISLANDING_vars df={df} sent to geovis at t={t}'.format(df=self.freq_diff,
                 #                                                               t=ISLANDING_vars['t']))
 
@@ -301,7 +313,8 @@ def run():
                '192.168.1.109',
                '192.168.1.127',
                '192.168.1.145',
-               '192.168.1.163',]
+               '192.168.1.163',
+               ]
     islanding = Islanding(name='ISLANDING',
                           dime_address='tcp://192.168.1.200:5000',
                           ip_list=ip_list)
