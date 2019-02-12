@@ -4,7 +4,7 @@ import json
 import time
 
 from mininet.topo import Topo
-from mininet.link import Intf
+from mininet.link import Intf, TCIntf
 
 from mininet import log
 from mininet.node import Node
@@ -24,6 +24,7 @@ class Network(Topo):
         self.PMU = PMU()
         self.Link = Link()
         self.HwIntf = HwIntf()
+        self.TCHwIntf = TCHwIntf()
 
         self.components = []
 
@@ -164,8 +165,23 @@ class Network(Topo):
             switch_index = self.Switch.lookup_index(to)
             log.info('*** Adding hardware interface', name, 'to switch', to, '\n')
 
-            # TODO: add (delay, bw, jitter and loss)
             r = Intf(name, node=net.switches[switch_index])
+
+    def add_tc_hw_intf(self, net):
+        """Add traffic controlled hardware interfaces from Network.TCHwIntf records"""
+        for i, name, to, delay, bw, loss, jitter in zip(
+                range(self.TCHwIntf.n), self.TCHwIntf.name, self.TCHwIntf.to, self.TCHwIntf.delay, self.TCHwIntf.bw,
+                      self.TCHwIntf.loss, self.TCHwIntf.jitter):
+            switch_index = self.Switch.lookup_index(to)
+
+            d = delay
+            b = float(bw) if bw is not None else None
+            l = float(loss) if loss is not None else None
+            j = float(jitter) if jitter is not None else None
+
+            log.info('*** Adding traffic controlled hardware interface', name, 'to switch', to, '\n')
+            log.info('')
+            r = TCIntf(name, node=net.switches[switch_index], delay=d, loss=l, bw=b, jitter=j)
 
 
 class Record(object):
@@ -421,5 +437,11 @@ class Link(Record):
 
 class HwIntf(Record):
     """Hardware Interface class"""
+    def add_link_to_mn(self, network):
+        pass
+
+
+class TCHwIntf(Record):
+    """Hardware Traffic controlled Interface class"""
     def add_link_to_mn(self, network):
         pass

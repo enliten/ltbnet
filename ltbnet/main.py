@@ -20,6 +20,8 @@ def main(*args, **kwargs):
                         help='clean MiniPMU and Mininet processes')
     parser.add_argument('--verbose', '-v', action='store_true',
                         help='enable INFO level verbose logging')
+    parser.add_argument('--runpmu', help='run LTBPMU processes on the specified PMU hosts',
+                        action='store_true')
     cli_args = parser.parse_args()
 
     if cli_args.verbose:
@@ -35,10 +37,13 @@ def main(*args, **kwargs):
 
     if network.HwIntf.n:
         network.add_hw_intf(net)
+    if network.TCHwIntf.n:
+        network.add_tc_hw_intf(net)
 
     net.start()
     print('LTBNet Ready')
-    network.PMU.run_pmu(net)
+    if cli_args.runpmu:
+        network.PMU.run_pmu(net)
     CLI(net)
 
     print('Stopping MiniPMUs - enter your root password if prompted')
