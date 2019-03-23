@@ -1,15 +1,17 @@
 """Main function of the LTBNet executable"""
 
 import os
-
 import argparse
+
 from ltbnet.network import Network
 from ltbnet.parser import parse_config
-from mininet.link import TCLink
+from ltbnet.graph import make_graph
 
+from mininet import log
+
+from mininet.link import TCLink
 from mininet.net import Mininet
 from mininet.cli import CLI
-from mininet import log
 
 
 def main(*args, **kwargs):
@@ -22,6 +24,10 @@ def main(*args, **kwargs):
                         help='enable INFO level verbose logging')
     parser.add_argument('--runpmu', help='run LTBPMU processes on the specified PMU hosts',
                         action='store_true')
+    parser.add_argument('--graph', help='show graph visualization', action='store_true')
+    parser.add_argument('--parse_only', help='parse the input file only without '
+                                             'creating topology', action='store_true')
+
     cli_args = parser.parse_args()
 
     if cli_args.verbose:
@@ -32,6 +38,13 @@ def main(*args, **kwargs):
 
     config = parse_config(cli_args.config)
     network = Network().setup(config)
+
+    if cli_args.graph:
+        make_graph(network)
+
+    if cli_args.parse_only:
+        log.debug('Parse input file only. Exiting.')
+        return
 
     net = Mininet(topo=network, link=TCLink)
 
