@@ -5,9 +5,12 @@ import argparse
 
 from ltbnet.network import Network
 from ltbnet.parser import parse_config
-from ltbnet.graph import make_graph
+from ltbnet.graph import make_graph, draw_shortest_path, plt
 
 from mininet import log
+
+from mininet.node import ( Node, Host, OVSKernelSwitch, DefaultController, RemoteController,
+                           Controller )
 
 from mininet.link import TCLink
 from mininet.net import Mininet
@@ -25,8 +28,14 @@ def main(*args, **kwargs):
     parser.add_argument('--runpmu', help='run LTBPMU processes on the specified PMU hosts',
                         action='store_true')
     parser.add_argument('--graph', help='show graph visualization', action='store_true')
+    parser.add_argument('--source_node', help='name of the source node')
+    parser.add_argument('--target_node', help='name of the destination node')
+
     parser.add_argument('--parse_only', help='parse the input file only without '
                                              'creating topology', action='store_true')
+
+    parser.add_argument('--remote', '-r', action='store_true',
+                        help='use remote controller (Ryu tested)')
 
     cli_args = parser.parse_args()
 
@@ -40,13 +49,22 @@ def main(*args, **kwargs):
     network = Network().setup(config)
 
     if cli_args.graph:
-        make_graph(network)
+        network_graph, node_pos = make_graph(network)
+        if cli_args.source_node and cli_args.target_node:
+            network_graph = draw_shortest_path(network_graph, node_pos,
+                                               cli_args.source_node, cli_args.target_node)
+        plt.show()
 
     if cli_args.parse_only:
         log.debug('Parse input file only. Exiting.')
         return
 
-    net = Mininet(topo=network, link=TCLink)
+    if cli_args.remote:
+        controller = RemoteController
+    else:
+        controller = DefaultController
+
+    net = Mininet(topo=network, link=TCLink, controller=controller)
 
     if network.HwIntf.n:
         network.add_hw_intf(net)
