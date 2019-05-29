@@ -2,6 +2,7 @@ import sys
 import re
 import json
 import time
+import csv
 
 from mininet.topo import Topo
 from mininet.link import Intf, TCIntf
@@ -183,6 +184,78 @@ class Network(Topo):
             log.info('')
             r = TCIntf(name, node=net.switches[switch_index], delay=d, loss=l, bw=b, jitter=j)
 
+    def dump_sw_port_node(self, net):
+        """
+        Dump the switch-port-host mapping
+
+        Returns
+        -------
+
+        """
+        idx_list = []
+        sw_list = []
+        sw_mac_list = []
+        sw_id_list = []
+        sw_intf_name_list = []
+        sw_intf_id_list = []
+        target_intf_name_list = []
+        target_node_name_list = []
+
+        header = ['Idx', 'Switch', 'Switch_ID', 'MAC', 'Port', "Switch_Intf", "Node_Intf", "Node_Name"]
+        for idx, sw_name, sw_id in zip(self.Switch.idx, self.Switch.name, self.Switch.mn_object):
+            sw_instance = net.nameToNode[sw_id]
+            sw_mac = sw_instance.dpid
+
+            for intf_id, intf_instance in sw_instance.intfs.items():
+                if intf_instance.name == 'lo':
+                    continue  # skip the loop-back interface
+
+                if intf_instance.link is None:
+                    print('***Warning: Intf_id <{}> has no instance'.format(intf_id))
+                    continue
+
+                link1 = intf_instance.link.intf1
+                link2 = intf_instance.link.intf2
+
+                if any([link1, link2]) is None:
+                    continue
+
+                source_intf_name = None
+                target_intf = None
+                if sw_id in link1.name:
+                    source_intf_name = link1.name
+                    target_intf = link2
+                elif sw_id in link2.name:
+                    source_intf_name = link2.name
+                    target_intf = link1
+
+                assert target_intf is not None
+
+                target_intf_name = target_intf.name
+                target_name = target_intf.node.name
+
+                idx_list.append(idx)
+                sw_list.append(sw_name)
+                sw_id_list.append(sw_id)
+                sw_mac_list.append(sw_mac)
+                sw_intf_name_list.append(source_intf_name)
+                sw_intf_id_list.append(intf_id)
+                target_intf_name_list.append(target_intf_name)
+                target_node_name_list.append(target_name)
+
+        with open("sw_port_node.csv", 'w') as f:
+            writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+
+            writer.writerow(header)
+            for item in zip(idx_list, sw_list, sw_id_list, sw_mac_list, sw_intf_id_list, sw_intf_name_list,
+                                 target_intf_name_list, target_node_name_list):
+                writer.writerow(item)
+
+
+
+
+
+
 
 class Record(object):
     """Base class for config.csv records"""
@@ -322,11 +395,12 @@ class Record(object):
             return
 
         for i, name, ip in zip(range(self.n), self.mn_name, self.ip):
+            mac = self.mac[i]
             if self._name == 'Switch':
-                n = network.addSwitch(name)
+                n = network.addSwitch(name, dpid=mac)
                 self.mn_object.append(n)
             else:
-                n = network.addHost(name, ip=ip)
+                n = network.addHost(name, ip=ip, mac=mac)
                 self.mn_object.append(n)
                 # log.debug('Adding {ty} <{n}, {ip}> to network.'.format(ty=self._name, n=name, ip=ip))
 
@@ -425,7 +499,10 @@ class Link(Record):
             # check for optional link configs
             d = delay
             b = float(bw) if bw is not None else None
-            l = float(loss) if loss is not None else None
+
+            l = None
+            if loss:
+                l = float(loss)
             j = float(jitter) if jitter is not None else None
 
             if not network.Link.exist_undirectioned(fr, to):

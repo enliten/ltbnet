@@ -53,7 +53,7 @@ def make_graph(network):
     return G, pos
 
 
-def draw_shortest_path(G, pos, source, target):
+def draw_shortest_path(G, pos, source, target, labels=False):
     """
     Find the shortest path between `source` and `target`, and draw on the graph
 

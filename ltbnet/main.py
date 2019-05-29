@@ -36,6 +36,7 @@ def main(*args, **kwargs):
 
     parser.add_argument('--remote', '-r', action='store_true',
                         help='use remote controller (Ryu tested)')
+    parser.add_argument('--dump_sw', action='store_true', help="dump switch-port-node mapping to a csv file")
 
     cli_args = parser.parse_args()
 
@@ -70,6 +71,9 @@ def main(*args, **kwargs):
         network.add_hw_intf(net)
     if network.TCHwIntf.n:
         network.add_tc_hw_intf(net)
+
+    if cli_args.dump_sw:
+        network.dump_sw_port_node(net)
 
     net.start()
     print('LTBNet Ready')
