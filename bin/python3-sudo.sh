@@ -1,2 +1,2 @@
 #!/bin/bash
-sudo /usr/bin/python3 "$@"
+sudo /home/hcui7/miniconda3/bin/python "$@"
