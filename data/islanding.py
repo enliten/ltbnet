@@ -4,29 +4,28 @@ for header message, configuration and eventually
 to start sending measurements.
 """
 
-
-from synchrophasor.pdc import Pdc
-from synchrophasor.frame import DataFrame, HeaderFrame, \
-        ConfigFrame1, ConfigFrame2, ConfigFrame3
-from multiprocessing import Queue
-
 import time
 import logging
 
 import numpy as np
 import matplotlib.pyplot as plt
 
-from andes_addon.dime import Dime
+from synchrophasor.pdc import Pdc
+from synchrophasor.frame import DataFrame, HeaderFrame, \
+    ConfigFrame1, ConfigFrame2, ConfigFrame3
+from multiprocessing import Queue
 
+from dime import DimeClient
+ 
 h1, = plt.plot([], [], linewidth=6, label='Frequency Deviation')
 h2, = plt.plot([], [], linewidth=6, label='Separation Threshold')
 mng = plt.get_current_fig_manager()
-mng.full_screen_toggle()
+# mng.full_screen_toggle()
 
 ca = plt.gca()
-ca.legend(fontsize=30)
-ca.xaxis.set_tick_params(labelsize=30)
-ca.yaxis.set_tick_params(labelsize=30)
+ca.legend(fontsize=12)
+ca.xaxis.set_tick_params(labelsize=12)
+ca.yaxis.set_tick_params(labelsize=12)
 
 plt.ion()
 plt.show()
@@ -41,7 +40,8 @@ fh = logging.FileHandler('/var/log/minipdc.log')
 fh.setFormatter(formatter)
 logger.addHandler(fh)
 
-dimec = Dime('ISLANDING', 'tcp://192.168.1.200:5000')
+dimec = DimeClient('tcp', '192.168.1.20', 5000)
+dimec.join("ISLANDING")
 
 ISLANDING = {'vgsvaridx': np.array([1, 2])}
 ISLANDING_idx = {'fdev': np.array([1]), 'thresh': np.array([2])}
@@ -53,13 +53,17 @@ ISLANDING_info = ''
 class MiniPDC(object):
     """A MiniPDC connecting to multiple PMUs and a DiME server
     """
-    def __init__(self, name, dime_address, ip_list, port_list=None,
+
+    def __init__(self, name, protocol, dime_address, ip_list, port_list=None,
+                 dime_port=None,
                  loglevel=logging.INFO):
         self._name = name
         self._dime_address = dime_address
         self._loglevel = loglevel
 
-        self.dimec = Dime(name, dime_address)
+        self.dimec = DimeClient(protocol, dime_address, dime_port)
+        self.dimec.join("ISLANDING")
+
         self.ip_list = ip_list
         self.port_list = port_list  # not being used now
 
@@ -90,28 +94,24 @@ class MiniPDC(object):
     def sync_and_handle(self):
         """ Sync from DiME and handle the received data
         """
-        self.last_var = self.dimec.sync()
-        val = None
+        self.last_var = self.dimec.sync(1)
 
-        if self.last_var not in (None, False):
-            val = self.dimec.workspace[self.last_var]
-        else:
-            return
+        if len(self.last_var) == 0:
+            return None
+
+        self.last_var = list(self.last_var)[0]
+
+        val = self.dimec.workspace[self.last_var]
 
         if self.last_var == 'DONE' and int(val) == 1:
             self.andes_online = False
             self.initialize()
             pass
+        
         return self.last_var
 
     def start_dime(self):
         logger.info('Connecting to DiME at {}'.format(self._dime_address))
-        self.dimec.start()
-        try:
-            self.dimec.exit()
-        except:
-            pass
-        self.dimec.start()
         logger.info('DiME connected')
 
     def init_pdc(self):
@@ -150,8 +150,10 @@ class MiniPDC(object):
 
 
 class Islanding(MiniPDC):
-    """System islanding class
     """
+    System islanding class
+    """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -192,12 +194,14 @@ class Islanding(MiniPDC):
             val = self.dimec.workspace[self.last_var]
             if val is not None:
                 self.andes_online = True
-                self.dimec.send_var('sim', 'ISLANDING', ISLANDING)
+                self.dimec.send_r('andes', ISLANDING=ISLANDING)
                 # self.dimec.broadcast('ISLANDING_idx', ISLANDING_idx)
                 # self.dimec.broadcast('ISLANDING_header', ISLANDING_header)
             self.initialize()
+
         elif self.last_var == 'Varvgs':
             print(self.dimec.workspace['Varvgs']['t'])
+
         return self.last_var
 
     def update_draw(self, xdata, ydata):
@@ -224,11 +228,11 @@ class Islanding(MiniPDC):
             # only start if ANDES is connected
             if self.andes_online is False:
                 continue
-            else:
-                if len(self.config) == 0:
-                    time.sleep(0.5)
-                    self.init_pdc()
-                    self.get_header_config()
+
+            if len(self.config) == 0:
+                time.sleep(0.5)
+                self.init_pdc()
+                self.get_header_config()
 
             # retrieve all measurements from the PDCs
             for idx, item in self.pdc.items():
@@ -256,10 +260,12 @@ class Islanding(MiniPDC):
                 elif isinstance(frame, DataFrame):
                     measurements = frame.get_measurements()
                     if isinstance(measurements, dict):
-                        self.freq[idx] = (measurements['measurements'][0]['frequency'] - 60) * 1000
+                        self.freq[idx] = (
+                            measurements['measurements'][0]['frequency'] - 60) * 1000
                         # only the data received here goes to processing
                     else:
-                        print('Unknown measurement type {}, continue'.format(type(measurements)))
+                        print('Unknown measurement type {}, continue'.format(
+                            type(measurements)))
                         continue
 
                 else:
@@ -283,23 +289,25 @@ class Islanding(MiniPDC):
                     # record the *initial* time when frequency divergence is detected
                     self.detected = True
                     self.time_detect = time.time()
-                    print('--> Frequency divergence detected. Islanding will happen in {}s'.format(self.islanding_delay))
+                    print(
+                        '--> Frequency divergence detected. Islanding will happen in {}s'.format(self.islanding_delay))
 
             # impose a delay before islanding by comparing time() and time_detect
-
             elif self.detected and (not self.islanded):
                 if time.time() - self.time_detect >= self.islanding_delay:
-                    self.dimec.send_var('sim', 'Event', self.event)
+                    self.dimec.send_var('andes', Event=self.event)
                     print('--> Islanding initiated!!!')
                     self.islanded = True
 
             if sf == 'Varvgs':
                 self.freq_diff_array = np.vstack((self.freq_diff_array,
                                                   np.array([[self.freq_diff, 0.4
-                                                          ]]))
-                          )
-                self.t_array = np.hstack((self.t_array, self.dimec.workspace[sf]['t']))
+                                                             ]]))
+                                                 )
+                self.t_array = np.hstack(
+                    (self.t_array, self.dimec.workspace[sf]['t']))
 
+                print("updating draw")
                 self.update_draw(self.t_array, self.freq_diff_array)
 
                 ISLANDING_vars['t'] = self.dimec.workspace[sf]['t']
@@ -310,19 +318,22 @@ class Islanding(MiniPDC):
 
 
 def run():
-    ip_list = [#'192.168.1.1',
-               #'192.168.1.19',
-               '192.168.1.34',
-               '192.168.1.55',
-               #'192.168.1.73',
-               #'192.168.1.91',
-               #'192.168.1.109',
-               #'192.168.1.127',
-               #'192.168.1.145',
-               #'192.168.1.163',
-               ]
+    ip_list = [  
+        # '192.168.1.1',
+        # '192.168.1.19',
+        '192.168.1.18',
+        '192.168.1.19',
+        # '192.168.1.73',
+        # '192.168.1.91',
+        # '192.168.1.109',
+        # '192.168.1.127',
+        # '192.168.1.145',
+        # '192.168.1.163',
+    ]
     islanding = Islanding(name='ISLANDING',
-                          dime_address='tcp://192.168.1.200:5000',
+                          protocol='tcp',
+                          dime_address='192.168.1.20',
+                          dime_port=5000,
                           ip_list=ip_list)
 
     islanding.run()

@@ -15,4 +15,5 @@ setup(name='ltbnet',
               'minipmu = ltbnet.minipmu:main',
           ]
       },
+      install_requires=['numpy', 'networkx', 'pydot'],
       )

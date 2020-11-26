@@ -40,8 +40,10 @@ def main(*args, **kwargs):
 
     cli_args = parser.parse_args()
 
+    log.setLogLevel('info')
     if cli_args.verbose:
-        log.setLogLevel('info')
+        log.setLogLevel('debug')
+
     if cli_args.clean:
         clean()
         return

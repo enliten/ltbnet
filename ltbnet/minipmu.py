@@ -9,7 +9,7 @@ import numpy as np
 from math import pi
 from enum import Enum
 
-from andes_addon.dime import Dime
+from dime import DimeClient
 
 from numpy import array, ndarray, zeros
 
@@ -76,7 +76,13 @@ class MiniPMU(object):
 
         self.reset_var()
 
-        self.dimec = Dime(self.name, self.dime_address)
+        spl = dime_address.split(":")
+        spl[1] = spl[1][2:]
+        if len(spl) == 3:
+            spl[2] = int(spl[2])
+        self.dimec = DimeClient(*spl)
+        self.dimec.join(self.name)
+
         self.pmu = Pmu(ip=pmu_ip, port=pmu_port)
 
     def reset_var(self, retain_data=False):
@@ -121,8 +127,8 @@ class MiniPMU(object):
         """
         Starts the dime client stored in `self.dimec`
         """
-        # logger.info('Connecting to server at {}'.format(self.dime_address))
-        assert self.dimec.start()
+        logger.info('Connecting to server at %s', self.dime_address)
+        pass
 
         # logger.info('DiME client connected')
 
@@ -167,9 +173,9 @@ class MiniPMU(object):
         self.Vn = [1] * len(self.pmu_idx)
 
         for i, idx in enumerate(self.pmu_idx):
-            self.Vn[i] = self.SysParam['Bus'][idx][1] * 1000  # get Vn
+            self.Vn[i] = self.SysParam['Bus']['Vn'][idx] * 1000  # get Vn
 
-        # logger.info('Retrieved bus Vn {}'.format(self.Vn))
+        logger.info('Retrieved bus Vn %g', self.Vn)
 
     def config_pmu(self):
         """
@@ -220,7 +226,7 @@ class MiniPMU(object):
 
         :return: ``var_idx`` in ``pmudata``
         """
-        npmu = len(self.Idxvgs['Pmu']['vm'][0])
+        npmu = len(self.Idxvgs['Pmu']['vm'])
 
         self.var_idx['vm'] = [int(i) - 1 for i in self.pmu_idx]
         self.var_idx['am'] = [npmu + int(i) - 1 for i in self.pmu_idx]
@@ -273,14 +279,16 @@ class MiniPMU(object):
         """
         ret = False
 
-        var = self.dimec.sync()
+        var = list(self.dimec.sync(1))
 
-        if var is False or None:
+        if len(var) == 0:
             return ret
+        
+        var = var[0]
 
-        # if self.reset is True:
-        #     logger.info('[{name}] variable <{var}> synced.'
-        #                 .format(name=self.name, var=var))
+        if self.reset is True:
+            logger.info('[%s] variable <%s> synced.',
+                        self.name, var)
 
         data = self.dimec.workspace[var]
 
@@ -295,7 +303,7 @@ class MiniPMU(object):
         elif var == 'pmudata':
             # only handle pmudata during normal cycle
             if self.reset is False:
-                # logger.info('In, t={:.4f}'.format(data['t']))
+                logger.info('In, t=%.4f', data['t'])
                 self.handle_measurement_data(data)
             # else:
             #     logger.info('{} not handled during reset cycle'.format(var))
@@ -370,14 +378,14 @@ class MiniPMU(object):
         """
         self.init_storage()
 
-        self.data[self.count, :] = data['vars'][0, self.vgsvaridx].reshape(-1)
+        self.data[self.count, :] = data['vars'][self.vgsvaridx]
         self.t[self.count, :] = data['t']
         self.count += 1
 
         # record
         if self.record_state == RecordState.RECORDING:
             self.data_record[self.count_record, :] = \
-                    data['vars'][0, self.vgsvaridx].reshape(-1)
+                    data['vars'][self.vgsvaridx]
 
             self.t_record[self.count_record, :] = data['t']
             self.count_record += 1
@@ -452,9 +460,9 @@ class MiniPMU(object):
 
                     else:
                         # use fresh data
-                        v_mag = self.last_data[0, self.var_idx['vm']] * self.Vn[0]
-                        v_ang = wrap_angle(self.last_data[0, self.var_idx['am']])
-                        v_freq = self.last_data[0, self.var_idx['w']] * self.fn
+                        v_mag = self.last_data[self.var_idx['vm']] * self.Vn[0]
+                        v_ang = wrap_angle(self.last_data[self.var_idx['am']])
+                        v_freq = self.last_data[self.var_idx['w']] * self.fn
 
                     # TODO: add noise to data
 
@@ -500,7 +508,7 @@ def main():
     parser.add_argument('-n', '--name', default='MiniPMU',
                         help='PMU instance name', type=str)
     parser.add_argument('-a', '--dime_address',
-                        default='tcp://192.168.1.200:5000',
+                        default='tcp://192.168.1.20:5000',
                         help='DiME server address')
     parser.add_argument('--fn', default=60,
                         help='nominal frequency (Hz)', type=int)
